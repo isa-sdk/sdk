@@ -62,6 +62,12 @@ type Options struct {
 	HTTPClient HTTPDoer
 	// Clock is the timestamp source for HMAC headers; nil → time.Now.
 	Clock license.Clock
+	// CaseViewerBaseURL is the share-link viewer origin; empty →
+	// DefaultCaseViewerBaseURL.
+	CaseViewerBaseURL string
+	// Random is the CSPRNG facade for case-key generation; nil →
+	// SystemRandomBytes.
+	Random RandomBytes
 }
 
 // Option mutates an Options block during NewClient. Functional options
@@ -79,6 +85,16 @@ func WithHTTPClient(c HTTPDoer) Option { return func(o *Options) { o.HTTPClient 
 // clock to make signatures reproducible.
 func WithClock(c license.Clock) Option { return func(o *Options) { o.Clock = c } }
 
+// WithCaseViewerBaseURL overrides DefaultCaseViewerBaseURL for share-link
+// assembly.
+func WithCaseViewerBaseURL(u string) Option {
+	return func(o *Options) { o.CaseViewerBaseURL = u }
+}
+
+// WithRandomBytes overrides the case-crypto CSPRNG. Tests inject a
+// deterministic source to make envelopes reproducible.
+func WithRandomBytes(r RandomBytes) Option { return func(o *Options) { o.Random = r } }
+
 // Client is the top-level `isa.account.*` namespace. Construct one per
 // process; it is safe for concurrent use.
 type Client struct {
@@ -86,6 +102,8 @@ type Client struct {
 	baseURL    string
 	httpClient HTTPDoer
 	clock      license.Clock
+	viewerBase string
+	random     RandomBytes
 
 	// Branding fetches whitelabel configuration for the calling license.
 	Branding *BrandingService
@@ -123,6 +141,8 @@ func NewClient(auth Auth, opts ...Option) (*Client, error) {
 		baseURL:    o.BaseURL,
 		httpClient: o.HTTPClient,
 		clock:      o.Clock,
+		viewerBase: o.CaseViewerBaseURL,
+		random:     o.Random,
 	}
 	c.Branding = &BrandingService{client: c}
 	c.Preferences = &PreferencesService{client: c}
@@ -130,4 +150,13 @@ func NewClient(auth Auth, opts ...Option) (*Client, error) {
 	c.Email = &EmailService{client: c}
 	c.ReferenceData = &ReferenceDataService{client: c}
 	return c, nil
+}
+
+// caseViewerBaseURL returns the configured share-link viewer origin, falling
+// back to DefaultCaseViewerBaseURL when unset.
+func (c *Client) caseViewerBaseURL() string {
+	if c.viewerBase == "" {
+		return DefaultCaseViewerBaseURL
+	}
+	return c.viewerBase
 }

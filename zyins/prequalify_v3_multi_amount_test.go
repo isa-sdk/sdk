@@ -16,6 +16,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/isa-sdk/sdk/catalog"
 )
 
 // multiAmountV3Server returns a flat `plans[]` envelope so the decoder is
@@ -63,7 +65,7 @@ func multiV3Request(t *testing.T) *PrequalifyV3Request {
 	if err != nil {
 		t.Fatalf("NewFaceValuesCoverage: %v", err)
 	}
-	products, err := NewProductSelection("fidelity-life-instabrain-pure-term")
+	products, err := NewProductSelectionOf(catalog.Products.Term.FidelityLifeInstabrainPureTerm())
 	if err != nil {
 		t.Fatalf("NewProductSelection: %v", err)
 	}
@@ -159,7 +161,7 @@ func TestPrequalifyV3Run_MonthlyBudget_DecodesBudgetAndGroupsByBudget(t *testing
 	if err != nil {
 		t.Fatalf("NewMonthlyBudgetsCoverage: %v", err)
 	}
-	products, err := NewProductSelection("fidelity-life-instabrain-pure-term")
+	products, err := NewProductSelectionOf(catalog.Products.Term.FidelityLifeInstabrainPureTerm())
 	if err != nil {
 		t.Fatalf("NewProductSelection: %v", err)
 	}

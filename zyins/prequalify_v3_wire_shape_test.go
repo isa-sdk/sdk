@@ -23,6 +23,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/isa-sdk/sdk/catalog"
 )
 
 // capturingV3Server stands in for the zyins server. It records the
@@ -145,7 +147,7 @@ func v3TestRequest(t *testing.T) *PrequalifyV3Request {
 	if err != nil {
 		t.Fatalf("NewFaceValueCoverage: %v", err)
 	}
-	products, err := NewProductSelection("fidelity-life-instabrain-pure-term")
+	products, err := NewProductSelectionOf(catalog.Products.Term.FidelityLifeInstabrainPureTerm())
 	if err != nil {
 		t.Fatalf("NewProductSelection: %v", err)
 	}
@@ -251,9 +253,10 @@ func TestPrequalifyV3Run_EmitsEnvelopeShape(t *testing.T) {
 		t.Errorf("coverage.zip = %q, want absent (no applicant zip supplied)", *env.Coverage.Zip)
 	}
 
-	// Products list: flat slugs, in caller-preferred order.
-	if len(env.Products) != 1 || env.Products[0] != "fidelity-life-instabrain-pure-term" {
-		t.Errorf("products = %v, want [fidelity-life-instabrain-pure-term]", env.Products)
+	// Products list: prod_<uuid> ids in caller order (never slugs).
+	wantProductID := catalog.Products.Term.FidelityLifeInstabrainPureTerm().Id
+	if len(env.Products) != 1 || env.Products[0] != wantProductID {
+		t.Errorf("products = %v, want [%q]", env.Products, wantProductID)
 	}
 
 	if !env.IncludeIneligible {
@@ -318,7 +321,7 @@ func TestQuoteV3Run_PreservesLegacyFlatShape(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewFaceValueCoverage: %v", err)
 	}
-	products, err := NewProductSelection("fidelity-life-instabrain-pure-term")
+	products, err := NewProductSelectionOf(catalog.Products.Term.FidelityLifeInstabrainPureTerm())
 	if err != nil {
 		t.Fatalf("NewProductSelection: %v", err)
 	}
@@ -359,7 +362,7 @@ func TestPrequalifyV3Run_WithSingleMonthlyBudget_SerializesQuoteOptions(t *testi
 	if err != nil {
 		t.Fatalf("NewMonthlyBudgetCoverage: %v", err)
 	}
-	products, err := NewProductSelection("fidelity-life-instabrain-pure-term")
+	products, err := NewProductSelectionOf(catalog.Products.Term.FidelityLifeInstabrainPureTerm())
 	if err != nil {
 		t.Fatalf("NewProductSelection: %v", err)
 	}

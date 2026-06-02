@@ -1,109 +1,119 @@
 package zyins
 
 import (
-	"fmt"
 	"testing"
+
+	"github.com/isa-sdk/sdk/catalog"
 )
 
-func TestNewProductSelection_RejectsEmpty(t *testing.T) {
-	if _, err := NewProductSelection(); err == nil {
+func TestNewProductSelectionOf_RejectsEmpty(t *testing.T) {
+	if _, err := NewProductSelectionOf(); err == nil {
 		t.Errorf("expected error for empty selection")
 	}
-	if _, err := NewProductSelection(""); err == nil {
-		t.Errorf("expected error for blank token")
+}
+
+func TestNewProductSelectionOf_RejectsIdlessProduct(t *testing.T) {
+	p := catalog.Product{Name: "No ID Product", Class: "fex"}
+	if _, err := NewProductSelectionOf(p); err == nil {
+		t.Errorf("expected error for product with empty Id")
 	}
 }
 
-func TestNewProductSelection_RejectsSurroundingWhitespace(t *testing.T) {
-	cases := []string{
-		" colonial-penn.final-expense",
-		"colonial-penn.final-expense ",
-		"\tcolonial-penn.final-expense",
-		"colonial-penn.final-expense\n",
-		"  colonial-penn.final-expense  ",
-	}
-	for _, tok := range cases {
-		t.Run(fmt.Sprintf("%q", tok), func(t *testing.T) {
-			if _, err := NewProductSelection(tok); err == nil {
-				t.Errorf("expected error for token with surrounding whitespace: %q", tok)
-			}
-		})
+func TestNewProductSelectionOf_RejectsLegacySlugId(t *testing.T) {
+	// A legacy slug like "fidelity-life-instabrain-pure-term" is not a prod_<uuid>;
+	// the v3 wire contract only accepts prod_<uuid> identifiers.
+	p := catalog.Product{Id: "fidelity-life-instabrain-pure-term", Name: "Fidelity Life", Class: "term"}
+	if _, err := NewProductSelectionOf(p); err == nil {
+		t.Errorf("expected error for product with non-prod_ Id")
 	}
 }
 
-func TestNewProductSelectionFromProducts_RejectsSurroundingWhitespace(t *testing.T) {
-	p := Product{Brand: "x", Type: ProductFinalExpense, WireToken: " x.final-expense "}
-	if _, err := NewProductSelectionFromProducts(p); err == nil {
-		t.Errorf("expected error for product wire token with surrounding whitespace")
-	}
-}
-
-func TestProductSelection_WireStringJoinsWithPipe(t *testing.T) {
-	sel, err := NewProductSelection("a.b", "c.d", "e.f")
+func TestNewProductSelectionOf_AcceptsCatalogProduct(t *testing.T) {
+	sel, err := NewProductSelectionOf(catalog.Products.Fex.AetnaAccendo())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if got := sel.WireString(); got != "a.b|c.d|e.f" {
-		t.Errorf("WireString = %q, want a.b|c.d|e.f", got)
+	if sel.Len() != 1 {
+		t.Errorf("Len = %d, want 1", sel.Len())
 	}
-	if sel.Len() != 3 {
-		t.Errorf("Len = %d, want 3", sel.Len())
+	ids := sel.wireIDs()
+	if len(ids) != 1 || ids[0] != catalog.Products.Fex.AetnaAccendo().Id {
+		t.Errorf("wireIDs = %v, want [%q]", ids, catalog.Products.Fex.AetnaAccendo().Id)
 	}
 }
 
-func TestProductSelection_FromProducts(t *testing.T) {
-	p := Product{Brand: "x", Type: ProductFinalExpense, WireToken: "x.final-expense"}
-	sel, err := NewProductSelectionFromProducts(p)
+func TestNewProductSelectionOf_WireIDsAreProdUUIDs(t *testing.T) {
+	sel, err := NewProductSelectionOf(
+		catalog.Products.Fex.AetnaAccendo(),
+		catalog.Products.Term.BannerOpterm(),
+	)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if sel.WireString() != "x.final-expense" {
-		t.Errorf("WireString = %q", sel.WireString())
+	ids := sel.wireIDs()
+	if len(ids) != 2 {
+		t.Fatalf("wireIDs length = %d, want 2", len(ids))
 	}
-	out := sel.Products()
-	if len(out) != 1 || out[0].Brand != "x" {
-		t.Errorf("Products() = %+v", out)
+	for _, id := range ids {
+		if len(id) < 10 || id[:5] != "prod_" {
+			t.Errorf("wireID %q is not a prod_<uuid>", id)
+		}
+	}
+}
+
+func TestProductSelection_Items_ReturnsCopy(t *testing.T) {
+	p := catalog.Products.Fex.AetnaAccendo()
+	sel, err := NewProductSelectionOf(p)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	items := sel.Items()
+	if len(items) != 1 || items[0] != p {
+		t.Errorf("Items() = %+v", items)
 	}
 	// Mutating the returned slice must not affect the selection.
-	out[0].Brand = "mutated"
-	if sel.Products()[0].Brand != "x" {
-		t.Errorf("ProductSelection leaked internal slice; brand mutated")
+	items[0] = catalog.Product{Id: "prod_mutated"}
+	if sel.wireIDs()[0] != p.Id {
+		t.Errorf("ProductSelection leaked internal slice")
 	}
 }
 
-func TestProductCatalog_TryFindReturnsCopy(t *testing.T) {
-	catalog := DefaultProductCatalog()
-	p := catalog.TryFind("colonial-penn", ProductFinalExpense)
-	if p == nil {
-		t.Fatalf("expected product")
-	}
-
-	p.Brand = "mutated"
-
-	got, err := catalog.Find("colonial-penn", ProductFinalExpense)
-	if err != nil {
-		t.Fatalf("Find: %v", err)
-	}
-	if got.Brand != "colonial-penn" {
-		t.Errorf("TryFind leaked catalog storage; brand = %q", got.Brand)
-	}
-}
-
-func TestProductCatalogFromDatasets_SkipsUnknownProductClass(t *testing.T) {
-	catalog := ProductCatalogFromDatasets(map[string]any{
+func TestProductCatalogFromDatasets_SkipsEntriesMissingID(t *testing.T) {
+	c := ProductCatalogFromDatasets(map[string]any{
 		"products": map[string]any{
-			"unknown": []any{
+			"fex": []any{
 				map[string]any{
-					"identifier": "carrier.unknown",
-					"carrier":    "carrier",
-					"name":       "Unknown Product",
-					"product":    "unexpected",
+					// no "id" field — must be skipped
+					"name":    "Some Product",
+					"carrier": "Some Carrier",
+					"class":   "fex",
 				},
 			},
 		},
 	})
+	if got := c.List(); len(got) != 0 {
+		t.Fatalf("expected empty catalog for entry with no id; got %+v", got)
+	}
+}
 
-	if got := catalog.List(); len(got) != 0 {
-		t.Fatalf("unknown product class was included: %+v", got)
+func TestProductCatalogFromDatasets_ParsesIDWithProdPrefix(t *testing.T) {
+	c := ProductCatalogFromDatasets(map[string]any{
+		"products": map[string]any{
+			"fex": []any{
+				map[string]any{
+					"id":      "d7b57156-3e83-506b-8936-0692c1193dc7",
+					"name":    "Aetna Accendo",
+					"carrier": "Aetna",
+					"class":   "fex",
+				},
+			},
+		},
+	})
+	list := c.List()
+	if len(list) != 1 {
+		t.Fatalf("expected 1 product; got %d", len(list))
+	}
+	if list[0].Id != "prod_d7b57156-3e83-506b-8936-0692c1193dc7" {
+		t.Errorf("Id = %q, want prod_ prefix", list[0].Id)
 	}
 }

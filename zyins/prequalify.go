@@ -344,7 +344,7 @@ func buildPrequalifyBody(in *PrequalifyInput) (prequalifyWireBody, error) {
 		State:         string(in.Applicant.State),
 		Zip:           in.Applicant.Zip,
 		NicotineUsage: nicotineWire,
-		Products:      in.Products.WireTokens(),
+		Products:      in.Products.wireIDs(),
 		Conditions:    conds,
 		Medications:   meds,
 		QuoteOptions: prequalifyQuoteOptions{

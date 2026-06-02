@@ -125,13 +125,13 @@ func TestCasesService_Save_DefaultIsZeroKnowledge(t *testing.T) {
 
 func TestClient_APIVersionFor_HonorsOverrides(t *testing.T) {
 	c := newCaseStorageTestClient(t, mustOption(t, WithAPIVersionOverrides(map[string]string{
-		"quote": "v3",
+		"quote": "v2",
 	})))
-	if got := c.APIVersionFor("quote"); got != "v3" {
-		t.Errorf("APIVersionFor(quote) = %q, want v3 (override)", got)
+	if got := c.APIVersionFor("quote"); got != "v2" {
+		t.Errorf("APIVersionFor(quote) = %q, want v2 (override)", got)
 	}
-	if got := c.APIVersionFor("prequalify"); got != "v2" {
-		t.Errorf("APIVersionFor(prequalify) = %q, want v2 (bundled)", got)
+	if got := c.APIVersionFor("prequalify"); got != "v3" {
+		t.Errorf("APIVersionFor(prequalify) = %q, want v3 (bundled)", got)
 	}
 	if got := c.APIVersionFor("totally_unknown"); got != "" {
 		t.Errorf("APIVersionFor(unknown) = %q, want \"\"", got)

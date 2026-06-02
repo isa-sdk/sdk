@@ -11,6 +11,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/isa-sdk/sdk/catalog"
 )
 
 // newTestClient returns a Client that targets srv. The retry transport
@@ -21,6 +23,14 @@ func newTestClient(t *testing.T, srv *httptest.Server) *Client {
 		WithToken("isa_test_4fjK2nQ7mX1aB8sR9pZ3"),
 		WithBaseURL(srv.URL),
 		WithMaxRetryAttempts(1),
+		// The bundled default pins prequalify/quote to v3; these tests
+		// exercise the legacy v1/v2 Prequalify / Quote services, so they
+		// opt out to v2 — the explicit pin a consumer uses to reach the
+		// legacy shape. The v3 path has its own routing suite.
+		WithAPIVersionOverrides(map[string]string{
+			"prequalify": "v2",
+			"quote":      "v2",
+		}),
 	)
 	if err != nil {
 		t.Fatalf("NewClient: %v", err)
@@ -90,7 +100,7 @@ func TestPrequalify_Run_HappyPath(t *testing.T) {
 
 	c := newTestClient(t, srv)
 	cov, _ := NewFaceValueCoverage(100_000)
-	sel, _ := NewProductSelection("colonial-penn.final-expense")
+	sel, _ := NewProductSelectionOf(catalog.Products.Fex.AetnaAccendo())
 
 	result, err := c.Prequalify.Run(context.Background(), &PrequalifyInput{
 		Applicant: validApplicant(t),
@@ -117,15 +127,18 @@ func TestPrequalify_Run_HappyPath(t *testing.T) {
 	if err := json.Unmarshal(captured.body, &decoded); err != nil {
 		t.Fatalf("body unmarshal: %v", err)
 	}
-	// 0.5.1 flat wire: products is a string array.
+	// Products wire carries prod_<uuid> ids (never slugs).
 	prods, _ := decoded["products"].([]any)
-	if len(prods) != 1 || prods[0] != "colonial-penn.final-expense" {
-		t.Errorf("body.products = %v", decoded["products"])
+	wantID := catalog.Products.Fex.AetnaAccendo().Id
+	if len(prods) != 1 || prods[0] != wantID {
+		t.Errorf("body.products = %v, want [%q]", decoded["products"], wantID)
 	}
 }
 
 func TestPrequalify_Run_NilInputReturnsValidationError(t *testing.T) {
-	c, _ := NewClient(WithToken("isa_test_abc"))
+	// Pin to v2 so the legacy Prequalify.Run service is reachable; the
+	// bundled default is now v3, which routes to PrequalifyV3.Run.
+	c, _ := NewClient(WithToken("isa_test_abc"), WithAPIVersionOverrides(map[string]string{"prequalify": "v2"}))
 	_, err := c.Prequalify.Run(context.Background(), nil)
 	if !errors.Is(err, ErrValidation) {
 		t.Fatalf("expected ErrValidation; got %v", err)
@@ -142,7 +155,7 @@ func TestPrequalify_Run_ServerValidationErrorTyped(t *testing.T) {
 
 	c := newTestClient(t, srv)
 	cov, _ := NewFaceValueCoverage(100_000)
-	sel, _ := NewProductSelection("x.y")
+	sel, _ := NewProductSelectionOf(catalog.Products.Fex.AetnaAccendo())
 
 	_, err := c.Prequalify.Run(context.Background(), &PrequalifyInput{
 		Applicant: validApplicant(t),
@@ -239,7 +252,7 @@ func TestPrequalify_Run_WithIdempotencyKey(t *testing.T) {
 
 	c := newTestClient(t, srv)
 	cov, _ := NewFaceValueCoverage(50_000)
-	sel, _ := NewProductSelection("x.y")
+	sel, _ := NewProductSelectionOf(catalog.Products.Fex.AetnaAccendo())
 	_, err := c.Prequalify.Run(context.Background(), &PrequalifyInput{
 		Applicant: validApplicant(t),
 		Coverage:  cov,
@@ -324,7 +337,7 @@ func TestClient_RespectsContextCancellation(t *testing.T) {
 
 func TestPrequalify_WireBody_CarriesFlattenedApplicant(t *testing.T) {
 	cov, _ := NewFaceValueCoverage(100_000)
-	sel, _ := NewProductSelection("a.b", "c.d")
+	sel, _ := NewProductSelectionOf(catalog.Products.Fex.AetnaAccendo(), catalog.Products.Fex.AetnaProtectionSeries())
 	applicant := validApplicant(t)
 	applicant.Conditions = []Condition{{Name: "diabetes", WasDiagnosed: "2020", LastTreatment: "2024"}}
 	applicant.Medications = []Medication{{Name: "metformin", Use: "current", FirstFill: "2020", LastFill: "2024"}}
@@ -340,8 +353,11 @@ func TestPrequalify_WireBody_CarriesFlattenedApplicant(t *testing.T) {
 	if body.Gender != "male" || body.Height != 70 || body.Weight != 195 {
 		t.Errorf("flat wire fields wrong: gender=%q height=%d weight=%d", body.Gender, body.Height, body.Weight)
 	}
-	if len(body.Products) != 2 || body.Products[0] != "a.b" || body.Products[1] != "c.d" {
-		t.Errorf("products wire = %v, want [a.b c.d]", body.Products)
+	// Products wire carries prod_<uuid> ids (never slugs), in selection order.
+	wantFirst := catalog.Products.Fex.AetnaAccendo().Id
+	wantSecond := catalog.Products.Fex.AetnaProtectionSeries().Id
+	if len(body.Products) != 2 || body.Products[0] != wantFirst || body.Products[1] != wantSecond {
+		t.Errorf("products wire = %v, want [%q %q]", body.Products, wantFirst, wantSecond)
 	}
 	if body.NicotineUsage.LastUsed != "never" {
 		t.Errorf("nicotine_usage.last_used = %q, want never", body.NicotineUsage.LastUsed)
@@ -359,10 +375,12 @@ func TestPrequalify_WireBody_CarriesFlattenedApplicant(t *testing.T) {
 }
 
 func TestProductsService_CatalogDecodesProductsEndpoint(t *testing.T) {
+	// v3 product entries carry "id" (raw UUID), "name", "carrier", and "class".
+	entry := `{"id":"d7b57156-3e83-506b-8936-0692c1193dc7","name":"Aetna Accendo","carrier":"Aetna","class":"fex"}`
 	responses := map[string]string{
-		"direct": `{"data":{"fex":[{"identifier":"colonial-penn.final-expense","carrier":"colonial-penn","name":"Colonial Penn","product":"fex"}]}}`,
-		"nested": `{"data":{"products":{"fex":[{"identifier":"colonial-penn.final-expense","carrier":"colonial-penn","name":"Colonial Penn","product":"fex"}]}}}`,
-		"v2":     `{"data":{"count":1,"data":{"fex":[{"identifier":"colonial-penn.final-expense","carrier":"colonial-penn","name":"Colonial Penn","product":"fex"}]}}}`,
+		"direct": `{"data":{"fex":[` + entry + `]}}`,
+		"nested": `{"data":{"products":{"fex":[` + entry + `]}}}`,
+		"v2":     `{"data":{"count":1,"data":{"fex":[` + entry + `]}}}`,
 	}
 	for name, response := range responses {
 		t.Run(name, func(t *testing.T) {
@@ -379,16 +397,16 @@ func TestProductsService_CatalogDecodesProductsEndpoint(t *testing.T) {
 			defer srv.Close()
 
 			c := newTestClient(t, srv)
-			catalog, err := c.Products.Catalog(context.Background())
+			pc, err := c.Products.Catalog(context.Background())
 			if err != nil {
 				t.Fatalf("Catalog: %v", err)
 			}
-			got, err := catalog.FindBySlug("colonial-penn.final-expense")
+			got, err := pc.Find("Aetna Accendo")
 			if err != nil {
-				t.Fatalf("FindBySlug: %v", err)
+				t.Fatalf("Find: %v", err)
 			}
-			if got.Brand != "colonial-penn" || got.Type != ProductFinalExpense {
-				t.Fatalf("product = %+v, want colonial-penn final expense", got)
+			if got.Id != "prod_d7b57156-3e83-506b-8936-0692c1193dc7" || got.Carrier != "Aetna" {
+				t.Fatalf("product = %+v, want Aetna Accendo with prod_ id", got)
 			}
 		})
 	}

@@ -12,12 +12,19 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/isa-sdk/sdk/catalog"
 )
 
-// routingProductWireID is the product wire identifier used by every
-// routing test. Declared once so a future rename only touches one
-// constant.
-const routingProductWireID = "aetna-test-product"
+// routingProduct is the catalog product used by every routing test. Under
+// the id-only catalog its opaque prod_<uuid> id is the only thing serialized
+// on the wire.
+var routingProduct = catalog.Products.Fex.AetnaAccendo()
+
+// routingProductWireID is the product wire id every routing test expects —
+// the catalog product's opaque prod_<uuid> id. Server fixtures echo it as the
+// response product token.
+var routingProductWireID = routingProduct.Id
 
 // routingCapturedRequest records what the server actually saw so the
 // test can assert the routing chose the right /vN/... path.
@@ -47,7 +54,7 @@ func newRoutingServer(t *testing.T, body string) (*httptest.Server, *routingCapt
 
 // newRoutingClient builds a client wired to srv with the supplied
 // per-surface APIVersion overrides. A nil overrides map means "use the
-// BundledAPIVersions defaults" (prequalify=v2, quote=v2).
+// BundledAPIVersions defaults" (prequalify=v3, quote=v3).
 func newRoutingClient(t *testing.T, srv *httptest.Server, overrides map[string]string) *Client {
 	t.Helper()
 	opts := []Option{
@@ -89,9 +96,9 @@ func routingApplicant(t *testing.T) Applicant {
 
 func routingProducts(t *testing.T) ProductSelection {
 	t.Helper()
-	ps, err := NewProductSelection(routingProductWireID)
+	ps, err := NewProductSelectionOf(routingProduct)
 	if err != nil {
-		t.Fatalf("NewProductSelection: %v", err)
+		t.Fatalf("NewProductSelectionOf: %v", err)
 	}
 	return ps
 }

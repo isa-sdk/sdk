@@ -4,10 +4,10 @@ import "testing"
 
 func TestBundledAPIVersions_DeclaresAllExpectedSurfaces(t *testing.T) {
 	expected := map[string]string{
-		"prequalify": "v2",
-		"quote":      "v2",
-		"datasets":   "v2",
-		"reference":  "v2",
+		"prequalify": "v3",
+		"quote":      "v3",
+		"datasets":   "v3",
+		"reference":  "v3",
 		"sessions":   "v1",
 		"branding":   "v1",
 		"cases":      "v1",
@@ -34,19 +34,19 @@ func TestResolveAPIVersion(t *testing.T) {
 		{
 			name:    "bundled fallback for prequalify",
 			surface: "prequalify",
-			want:    "v2",
+			want:    "v3",
 		},
 		{
 			name:      "override beats bundled",
-			overrides: map[string]string{"quote": "v3"},
+			overrides: map[string]string{"quote": "v2"},
 			surface:   "quote",
-			want:      "v3",
+			want:      "v2",
 		},
 		{
 			name:      "override unrelated surface falls back to bundled",
-			overrides: map[string]string{"prequalify": "v3"},
+			overrides: map[string]string{"prequalify": "v2"},
 			surface:   "quote",
-			want:      "v2",
+			want:      "v3",
 		},
 		{
 			name:    "unknown surface returns empty string",
@@ -57,7 +57,7 @@ func TestResolveAPIVersion(t *testing.T) {
 			name:      "empty-string override falls through to bundled",
 			overrides: map[string]string{"quote": ""},
 			surface:   "quote",
-			want:      "v2",
+			want:      "v3",
 		},
 		{
 			name:    "nil overrides safe",

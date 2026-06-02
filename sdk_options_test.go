@@ -47,8 +47,8 @@ func checkHasField(t *testing.T, value any, field string) {
 }
 
 func TestBundledAPIVersions_ReExportedAtRoot(t *testing.T) {
-	if BundledAPIVersions["prequalify"] != "v2" {
-		t.Errorf("sdk.BundledAPIVersions[prequalify] = %q, want v2", BundledAPIVersions["prequalify"])
+	if BundledAPIVersions["prequalify"] != "v3" {
+		t.Errorf("sdk.BundledAPIVersions[prequalify] = %q, want v3", BundledAPIVersions["prequalify"])
 	}
 	// The re-export must mirror the zyins source-of-truth value-by-
 	// value so reads stay consistent if a release bumps a surface.

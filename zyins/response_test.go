@@ -10,6 +10,7 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/isa-sdk/sdk/catalog"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -32,7 +33,7 @@ func TestPrequalify_RunWithRawResponse_ReturnsEnvelopeAndRaw(t *testing.T) {
 	defer srv.Close()
 	c := newTestClient(t, srv)
 	cov, _ := NewFaceValueCoverage(100_000)
-	sel, _ := NewProductSelection("colonial-penn.final-expense")
+	sel, _ := NewProductSelectionOf(catalog.Products.Fex.AetnaAccendo())
 	env, raw, err := c.Prequalify.RunWithRawResponse(context.Background(), &PrequalifyInput{
 		Applicant: validApplicant(t), Coverage: cov, Products: sel,
 	})
@@ -71,7 +72,7 @@ func TestPrequalify_RunWithRawResponse_FallsBackToOutboundIdempotencyKey(t *test
 	defer srv.Close()
 	c := newTestClient(t, srv)
 	cov, _ := NewFaceValueCoverage(100_000)
-	sel, _ := NewProductSelection("x.y")
+	sel, _ := NewProductSelectionOf(catalog.Products.Fex.AetnaAccendo())
 	env, _, err := c.Prequalify.RunWithRawResponse(context.Background(), &PrequalifyInput{
 		Applicant: validApplicant(t), Coverage: cov, Products: sel,
 	}, WithIdempotencyKey("custom-key-42"))
@@ -94,7 +95,7 @@ func TestIdempotencyConflictError_ParsedFromProblemDetails(t *testing.T) {
 	defer srv.Close()
 	c := newTestClient(t, srv)
 	cov, _ := NewFaceValueCoverage(50_000)
-	sel, _ := NewProductSelection("x.y")
+	sel, _ := NewProductSelectionOf(catalog.Products.Fex.AetnaAccendo())
 	_, err := c.Prequalify.Run(context.Background(), &PrequalifyInput{
 		Applicant: validApplicant(t), Coverage: cov, Products: sel,
 	})
@@ -126,7 +127,7 @@ func TestIdempotencyConflictError_FallbackFromConflictStatusOnly(t *testing.T) {
 	defer srv.Close()
 	c := newTestClient(t, srv)
 	cov, _ := NewFaceValueCoverage(50_000)
-	sel, _ := NewProductSelection("x.y")
+	sel, _ := NewProductSelectionOf(catalog.Products.Fex.AetnaAccendo())
 	_, err := c.Prequalify.Run(context.Background(), &PrequalifyInput{
 		Applicant: validApplicant(t), Coverage: cov, Products: sel,
 	})
@@ -161,7 +162,7 @@ func TestClient_ConcurrentRequestsHaveDistinctIdempotencyKeys(t *testing.T) {
 	defer srv.Close()
 	c := newTestClient(t, srv)
 	cov, _ := NewFaceValueCoverage(100_000)
-	sel, _ := NewProductSelection("x.y")
+	sel, _ := NewProductSelectionOf(catalog.Products.Fex.AetnaAccendo())
 
 	var g errgroup.Group
 	for range n {
@@ -205,7 +206,7 @@ func TestClient_ConcurrentRequestsHaveDistinctRequestIDs(t *testing.T) {
 	defer srv.Close()
 	c := newTestClient(t, srv)
 	cov, _ := NewFaceValueCoverage(100_000)
-	sel, _ := NewProductSelection("x.y")
+	sel, _ := NewProductSelectionOf(catalog.Products.Fex.AetnaAccendo())
 
 	results := make([]string, n)
 	var g errgroup.Group

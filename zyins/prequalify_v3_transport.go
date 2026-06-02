@@ -231,7 +231,7 @@ func buildV3PrequalifyEnvelopeBody(app Applicant, cov Coverage, products Product
 	payload := map[string]any{
 		"applicant": applicant,
 		"coverage":  buildV3Coverage(cov, string(app.State), app.Zip),
-		"products":  products.WireTokens(),
+		"products":  products.wireIDs(),
 	}
 	if options != nil && options.IncludeIneligible != nil {
 		payload["include_ineligible"] = *options.IncludeIneligible
@@ -430,7 +430,7 @@ func buildV3WireBody(app Applicant, cov Coverage, products ProductSelection, opt
 			"quote_type": quoteType,
 			"amounts":    []string{fmt.Sprintf("%d", cov.Amount)},
 		},
-		"products": products.WireTokens(),
+		"products": products.wireIDs(),
 	}
 	if app.Zip != "" {
 		payload["zip"] = app.Zip

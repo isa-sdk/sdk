@@ -22,9 +22,8 @@ func TestPrequalifyV3_Run_RejectsCallWhenNotPinnedToV3(t *testing.T) {
 		name      string
 		overrides map[string]string
 	}{
-		{"bundled default (v2)", nil},
 		{"explicitly pinned to v1", map[string]string{"prequalify": "v1"}},
-		{"pinned to v2 (no-op)", map[string]string{"prequalify": "v2"}},
+		{"pinned to v2 (overrides v3 default)", map[string]string{"prequalify": "v2"}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -68,9 +67,8 @@ func TestQuoteV3_Run_RejectsCallWhenNotPinnedToV3(t *testing.T) {
 		name      string
 		overrides map[string]string
 	}{
-		{"bundled default (v2)", nil},
 		{"explicitly pinned to v1", map[string]string{"quote": "v1"}},
-		{"pinned to v2 (no-op)", map[string]string{"quote": "v2"}},
+		{"pinned to v2 (overrides v3 default)", map[string]string{"quote": "v2"}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -103,18 +101,18 @@ func TestQuoteV3_Run_RejectsCallWhenNotPinnedToV3(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Default behavior preserved — no override leaves Prequalify / Quote on
-// their existing wire path. This regression-guards the known drift
-// called out in #364's PR description: BundledAPIVersions says v2 but
-// the path constant still points at /v1/... until the per-surface URL
-// reconciliation PR lands. We assert the CURRENT behavior so the
-// future reconciliation has to update this test alongside the code.
+// Legacy path preserved — pinning prequalify / quote to v2 (an explicit
+// opt-out of the v3 default) leaves the legacy Prequalify / Quote services
+// on their existing /v1/... wire path. The bundled default is now v3, so the
+// legacy services guard against an unpinned (v3) client; a v2 pin is the way
+// a consumer reaches the legacy shape, and it must still hit /v1/... until
+// the per-surface URL reconciliation PR lands.
 // ---------------------------------------------------------------------------
 
-func TestPrequalifyService_Run_BundledDefaultHitsLegacyV1Path(t *testing.T) {
+func TestPrequalifyService_Run_PinnedV2HitsLegacyV1Path(t *testing.T) {
 	body := `{"data":{"plans":[]},"request_id":"req_legacy"}`
 	srv, captured := newRoutingServer(t, body)
-	c := newRoutingClient(t, srv, nil)
+	c := newRoutingClient(t, srv, map[string]string{"prequalify": "v2"})
 
 	result, err := c.Prequalify.Run(context.Background(), &PrequalifyInput{
 		Applicant: routingApplicant(t),
@@ -132,10 +130,10 @@ func TestPrequalifyService_Run_BundledDefaultHitsLegacyV1Path(t *testing.T) {
 	}
 }
 
-func TestQuoteService_Run_BundledDefaultHitsLegacyV1Path(t *testing.T) {
+func TestQuoteService_Run_PinnedV2HitsLegacyV1Path(t *testing.T) {
 	body := `{"data":{"quote_id":"q_x","monthly_premium_cents":1000,"face_value_cents":100000,"request_id":"req_legacy"},"request_id":"req_legacy"}`
 	srv, captured := newRoutingServer(t, body)
-	c := newRoutingClient(t, srv, nil)
+	c := newRoutingClient(t, srv, map[string]string{"quote": "v2"})
 
 	_, err := c.Quote.Run(context.Background(), &QuoteInput{
 		Applicant:    routingApplicant(t),
@@ -163,11 +161,11 @@ func TestRouting_APIVersionFor_PrequalifyAndQuote(t *testing.T) {
 		wantPrequalify string
 		wantQuote      string
 	}{
-		{"defaults", nil, "v2", "v2"},
-		{"prequalify v3", map[string]string{"prequalify": "v3"}, "v3", "v2"},
-		{"quote v3", map[string]string{"quote": "v3"}, "v2", "v3"},
-		{"both v3", map[string]string{"prequalify": "v3", "quote": "v3"}, "v3", "v3"},
-		{"prequalify v1", map[string]string{"prequalify": "v1"}, "v1", "v2"},
+		{"defaults", nil, "v3", "v3"},
+		{"prequalify v2", map[string]string{"prequalify": "v2"}, "v2", "v3"},
+		{"quote v2", map[string]string{"quote": "v2"}, "v3", "v2"},
+		{"both v2", map[string]string{"prequalify": "v2", "quote": "v2"}, "v2", "v2"},
+		{"prequalify v1", map[string]string{"prequalify": "v1"}, "v1", "v3"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

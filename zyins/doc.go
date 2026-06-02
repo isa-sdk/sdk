@@ -10,11 +10,11 @@
 //	if err != nil {
 //		return err
 //	}
-//	products, err := zyins.NewProductSelection("colonial-penn.final-expense")
+//	products, err := zyins.NewProductSelectionOf(catalog.Products.Fex.AetnaAccendo())
 //	if err != nil {
 //		return err
 //	}
-//	result, err := client.Prequalify.Run(ctx, &zyins.PrequalifyInput{
+//	result, err := client.PrequalifyV3.Run(ctx, &zyins.PrequalifyV3Request{
 //		Applicant: zyins.Applicant{ /* ... */ },
 //		Coverage:  coverage,
 //		Products:  products,

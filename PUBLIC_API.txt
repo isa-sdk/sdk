@@ -766,11 +766,11 @@ Construct a Client with a bearer token and use the typed sub-services:
     if err != nil {
     	return err
     }
-    products, err := zyins.NewProductSelection("colonial-penn.final-expense")
+    products, err := zyins.NewProductSelectionOf(catalog.Products.Fex.AetnaAccendo())
     if err != nil {
     	return err
     }
-    result, err := client.Prequalify.Run(ctx, &zyins.PrequalifyInput{
+    result, err := client.PrequalifyV3.Run(ctx, &zyins.PrequalifyV3Request{
     	Applicant: zyins.Applicant{ /* ... */ },
     	Coverage:  coverage,
     	Products:  products,
@@ -839,10 +839,10 @@ var (
     handles for code that only needs to branch on class.
 
 var BundledAPIVersions = map[string]string{
-	"prequalify": "v2",
-	"quote":      "v2",
-	"datasets":   "v2",
-	"reference":  "v2",
+	"prequalify": "v3",
+	"quote":      "v3",
+	"datasets":   "v3",
+	"reference":  "v3",
 	"sessions":   "v1",
 	"branding":   "v1",
 	"cases":      "v1",
@@ -934,19 +934,16 @@ func NewMonthlyBudgetsCoverage(amounts []int) (Coverage, error)
     NewMonthlyBudgetsCoverage probes several monthly-premium ceilings in one
     call. Each amount must be a positive integer; at least one is required.
 
-func NewProductSelection(tokens ...string) (ProductSelection, error)
-    NewProductSelection constructs a selection from one or more wire tokens.
-    The tokens are not validated against the catalog; callers with a typed
-    Product should use NewProductSelectionFromProducts.
+func NewProductSelectionOf(products ...catalog.Product) (ProductSelection, error)
+    NewProductSelectionOf constructs a ProductSelection from one or more
+    typed catalog.Product values. Each product must carry a non-empty Id
+    (prod_<uuid>); the constructor returns an error otherwise so callers
+    discover the problem immediately rather than receiving zero plans from the
+    server.
 
-    Tokens with surrounding whitespace are rejected (not trimmed): the wire
-    contract treats the token as opaque, and silently trimming would mean the
-    stored value diverges from what the caller passed — a hard-to-diagnose
-    source of "why doesn't this match the catalog" reports.
+    The canonical form is:
 
-func NewProductSelectionFromProducts(products ...Product) (ProductSelection, error)
-    NewProductSelectionFromProducts constructs a selection from a list of typed
-    Product values.
+    sel, err := zyins.NewProductSelectionOf(catalog.Products.Fex.AetnaAccendo())
 
 func NewWeight(pounds int) (Weight, error)
     NewWeight constructs a Weight from a positive pound count.
@@ -2421,74 +2418,51 @@ type ProbeResult struct {
 
 func (p *ProbeResult) UnmarshalJSON(data []byte) error
 
-type Product struct {
-	// Brand is the carrier identifier (e.g., "colonial-penn").
-	Brand string `json:"brand"`
-	// Type is the product category.
-	Type ProductType `json:"type"`
-	// WireToken is the engine's canonical brand-and-type string. Stable
-	// within a wire major version.
-	WireToken string `json:"wire_token"`
-	// DisplayName is the human-readable label for UI surfaces.
-	DisplayName string `json:"display_name,omitempty"`
-}
-    Product is a single carrier/type combination offered through the prequalify
-    engine.
-
 type ProductCatalog struct {
 	// Has unexported fields.
 }
-    ProductCatalog is an in-memory catalog of known products. Construct via
-    DefaultProductCatalog or ProductCatalogFromDatasets.
+    ProductCatalog is an in-memory catalog of products fetched from the server.
+    Construct via ProductCatalogFromDatasets (from a /v3/datasets response) or
+    let ProductsService.Catalog do it automatically.
 
-func DefaultProductCatalog() *ProductCatalog
-    DefaultProductCatalog returns the static built-in catalog shipped with the
-    SDK.
+    For static, compile-time product access use catalog.Products directly;
+    ProductCatalog is for callers who need to query the live server catalog.
 
 func ProductCatalogFromDatasets(bundle map[string]any) *ProductCatalog
     ProductCatalogFromDatasets builds a catalog from a datasets bundle returned
-    by `client.Datasets.Get(ctx, include: []string{"products"})`. The products
-    field is a map of product-class keys to arrays of raw product entry objects.
-    Entries missing required fields are skipped.
+    by
 
-func (c *ProductCatalog) Find(brand string, t ProductType) (Product, error)
-    Find returns the product matching brand and type, or an error.
+    client.DatasetsV3.Get(ctx, zyins.DatasetsV3Options{Include: []zyins.DatasetCategory{"products"}})
 
-func (c *ProductCatalog) FindBySlug(slug string) (Product, error)
-    FindBySlug returns the product matching the wire token slug, or an error.
+    Each entry is normalized to the prod_<uuid> form. Entries missing a
+    non-empty id or name are silently skipped.
 
-func (c *ProductCatalog) List() []Product
+func (c *ProductCatalog) Find(name string) (catalog.Product, error)
+    Find returns the product matching the given display name (case-insensitive),
+    or an error when no match exists.
+
+func (c *ProductCatalog) List() []catalog.Product
     List returns all products in the catalog.
 
-func (c *ProductCatalog) TryFind(brand string, t ProductType) *Product
-    TryFind returns the product matching brand and type, or nil.
-
-func (c *ProductCatalog) TryFindBySlug(slug string) *Product
-    TryFindBySlug returns the product matching the wire token slug, or nil.
+func (c *ProductCatalog) TryFind(name string) *catalog.Product
+    TryFind returns the product matching the given display name
+    (case-insensitive), or nil when no match exists.
 
 type ProductSelection struct {
 	// Has unexported fields.
 }
-    ProductSelection groups one or more products for a single prequalify call.
-    WireString renders the `|`-joined token expression the engine accepts so
-    call sites never assemble it manually.
+    ProductSelection groups one or more products for a single prequalify or
+    quote call. Construct via NewProductSelectionOf; the selection serializes
+    each product's Id (prod_<uuid>) onto the wire — never a slug.
+
+    An idless product is a hard error at construction time, not a silent
+    zero-plan surprise.
+
+func (p ProductSelection) Items() []catalog.Product
+    Items returns a read-only copy of the selected catalog.Product values.
 
 func (p ProductSelection) Len() int
     Len returns the number of products in the selection.
-
-func (p ProductSelection) Products() []Product
-    Products returns a read-only view of the selection contents.
-
-func (p ProductSelection) WireString() string
-    WireString renders the prequalify wire string: a `|`-joined list of product
-    tokens.
-
-    Deprecated: Use WireTokens() which returns []string matching the 0.5.1 wire
-    body's products field. Will be removed in v0.7.0.
-
-func (p ProductSelection) WireTokens() []string
-    WireTokens returns the product wire tokens as a string slice for the 0.5.1
-    flat wire body's `products` field.
 
 type ProductType string
     ProductType is the coarse product category. Wire format uses

@@ -122,7 +122,7 @@ func TestQuoteService_Run_RejectsCallWhenPinnedToV3(t *testing.T) {
 	_, err := c.Quote.Run(context.Background(), &QuoteInput{
 		Applicant:    routingApplicant(t),
 		Coverage:     routingCoverage(t),
-		ProductToken: routingProductWireID,
+		ProductToken: routingProduct.Id,
 	})
 	if err == nil {
 		t.Fatal("Quote.Run should fail when client is pinned to v3")
