@@ -88,14 +88,14 @@ func writeFile(name, content string) {
 	fmt.Fprintln(os.Stderr, "wrote", p)
 }
 
-// preserveOrFail handles a missing product data source without ever shipping an
-// empty catalog. v2_products.json lives in the engine repo, which CI runners do
-// not check out, so a clean build legitimately misses it. In that case the
-// committed catalog is the source of truth — it carries the real prod_<uuid> ids
-// and IS the published artifact — so preserve it untouched. Overwriting it with
-// an empty stub is the isa-sdk@1.0.1 launch-blocker. With nothing committed to
-// preserve, fail loud rather than let an empty catalog reach a registry.
-func preserveOrFail(names []string, label string) {
+// preserveOrFail handles a missing data source without ever shipping an empty
+// catalog. The source JSON lives in the engine repo, which CI runners do not
+// check out, so a clean build legitimately misses it. In that case the committed
+// catalog is the source of truth — it carries the real published rows and IS the
+// published artifact — so preserve it untouched. Overwriting it with an empty
+// stub is the isa-sdk@1.0.1 launch-blocker. With nothing committed to preserve,
+// fail loud rather than let an empty catalog reach a registry.
+func preserveOrFail(names []string, label, source string) {
 	var missing []string
 	for _, n := range names {
 		if _, err := os.Stat(filepath.Join(outDir, n)); err != nil {
@@ -104,12 +104,12 @@ func preserveOrFail(names []string, label string) {
 	}
 	if len(missing) > 0 {
 		fmt.Fprintf(os.Stderr,
-			"FATAL: %s: v2_products.json not found AND no committed catalog to preserve (%s). "+
-				"Refusing to emit an empty product catalog. Run where %s exists, or commit a populated catalog first.\n",
-			label, strings.Join(missing, ", "), filepath.Join(insRepo, "v2_products.json"))
+			"FATAL: %s: %s not found AND no committed catalog to preserve (%s). "+
+				"Refusing to emit an empty catalog. Run where %s exists, or commit a populated catalog first.\n",
+			label, source, strings.Join(missing, ", "), filepath.Join(insRepo, source))
 		os.Exit(1)
 	}
-	gaps = append(gaps, label+": v2_products.json not found — preserving committed catalog.")
+	gaps = append(gaps, label+": "+source+" not found — preserving committed catalog.")
 	for _, n := range names {
 		fmt.Fprintln(os.Stderr, "preserved committed", filepath.Join(outDir, n))
 	}
@@ -255,7 +255,7 @@ func genProductsAndCarriers() {
 	sources := []string{"insurance/v2_products.json"}
 	var raw map[string][]map[string]any
 	if !tryJSON(filepath.Join(insRepo, "v2_products.json"), &raw) {
-		preserveOrFail([]string{"products.go", "carriers.go"}, "products")
+		preserveOrFail([]string{"products.go", "carriers.go"}, "products", "v2_products.json")
 		return
 	}
 
@@ -456,8 +456,11 @@ func genMedications() {
 	sources := []string{"insurance/v2_medications.json"}
 	var meds []map[string]any
 	if !tryJSON(filepath.Join(insRepo, "v2_medications.json"), &meds) {
-		gaps = append(gaps, "medications missing")
-		writeFile("medications.go", header(sources)+"type MedicationUseMetadata struct { DisplayName string; Medications []string }\nvar medicationUseMetadata = map[string]MedicationUseMetadata{}\nvar allMedicationUses = []string{}\ntype medicationUsesAPI struct{}\nvar MedicationUses medicationUsesAPI\nfunc (medicationUsesAPI) Values() []string { return nil }\nfunc (medicationUsesAPI) Metadata(string) (MedicationUseMetadata, bool) { return MedicationUseMetadata{}, false }\n")
+		// Same contract as Products: the committed medications.go is the
+		// published source of truth (~1865 uses) and CI does not check out the
+		// engine repo, so preserve it instead of clobbering it with an empty
+		// catalog. Fail loud only when there is nothing committed to preserve.
+		preserveOrFail([]string{"medications.go"}, "MedicationUses", "v2_medications.json")
 		return
 	}
 	uses := map[string]map[string]bool{}

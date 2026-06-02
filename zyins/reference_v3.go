@@ -223,6 +223,29 @@ func makeKey(text string) string {
 	return b.String()
 }
 
+// checkKey mirrors the engine's CondNameMakeCheckKey
+// (go/zyins/utils/strings/normalize.go, Perl cond_name_make_check_key_xs):
+// uppercase, strip non-ASCII-alphanumerics, then SORT the surviving bytes
+// ascending (digits before letters). Collapses word order so prefix /
+// suffix / no-space severity variants of one concept resolve identically,
+// while severity qualifiers stay distinct (MILD vs SEVERE differ in letter
+// multiset). Used ONLY for word-order-invariant NAME matching; opaque ids
+// stay on makeKey.
+func checkKey(text string) string {
+	upper := strings.ToUpper(text)
+	b := make([]byte, 0, len(upper))
+	for i := 0; i < len(upper); i++ {
+		ch := upper[i]
+		isDigit := ch >= '0' && ch <= '9'
+		isUpper := ch >= 'A' && ch <= 'Z'
+		if isDigit || isUpper {
+			b = append(b, ch)
+		}
+	}
+	sort.Slice(b, func(i, j int) bool { return b[i] < b[j] })
+	return string(b)
+}
+
 // ---------------------------------------------------------------------------
 // Catalog facade — the read-only view backing every matcher.
 // ---------------------------------------------------------------------------
@@ -232,6 +255,12 @@ type refCatalog struct {
 	medicationNames map[string]string
 	conditionOrder  []string
 	medicationOrder []string
+
+	// Word-order-invariant fallback: name check-key → id. First-write-
+	// wins so name-multiset collisions resolve deterministically (catalog
+	// order seeds the winner), matching engine determinism.
+	conditionIDByCheckKey  map[string]string
+	medicationIDByCheckKey map[string]string
 
 	// medicationsByCondition: conditionID → ordered list of medicationIDs
 	// (server-emitted ordering, which is descending by prescription_count
@@ -254,6 +283,8 @@ func buildCatalog(bundle *DatasetBundleV3) *refCatalog {
 	cat := &refCatalog{
 		conditionNames:         make(map[string]string),
 		medicationNames:        make(map[string]string),
+		conditionIDByCheckKey:  make(map[string]string),
+		medicationIDByCheckKey: make(map[string]string),
 		medicationsByCondition: make(map[string][]string),
 		conditionsByMedication: make(map[string][]string),
 		freqMedForCondition:    make(map[string]map[string]int),
@@ -262,10 +293,12 @@ func buildCatalog(bundle *DatasetBundleV3) *refCatalog {
 	for _, e := range bundle.Conditions {
 		cat.conditionNames[e.ID] = e.Name
 		cat.conditionOrder = append(cat.conditionOrder, e.ID)
+		indexCheckKey(cat.conditionIDByCheckKey, e.Name, e.ID)
 	}
 	for _, e := range bundle.Medications {
 		cat.medicationNames[e.ID] = e.Name
 		cat.medicationOrder = append(cat.medicationOrder, e.ID)
+		indexCheckKey(cat.medicationIDByCheckKey, e.Name, e.ID)
 	}
 	// Condition rows publish their inline treated_with[] medications.
 	for _, edge := range bundle.ConditionRelations {
@@ -339,6 +372,49 @@ func (c *refCatalog) medicationName(id string) (string, bool) {
 	n, ok := c.medicationNames[id]
 	return n, ok
 }
+
+// indexCheckKey records an entity under its name's sorted check key,
+// first-write-wins so a name-multiset collision resolves to the earliest
+// catalog entry rather than letting a later row shadow it.
+func indexCheckKey(m map[string]string, name, id string) {
+	key := checkKey(name)
+	if key == "" {
+		return
+	}
+	if _, exists := m[key]; !exists {
+		m[key] = id
+	}
+}
+
+// conditionIDForText resolves free text to a condition id: exact id/name
+// key first, then the word-order-invariant check-key fallback. The
+// fallback is a strict superset — it only fires when the exact key missed.
+func (c *refCatalog) conditionIDForText(text string) (string, bool) {
+	key := makeKey(text)
+	if key == "" {
+		return "", false
+	}
+	if _, ok := c.conditionNames[key]; ok {
+		return key, true
+	}
+	id, ok := c.conditionIDByCheckKey[checkKey(text)]
+	return id, ok
+}
+
+// medicationIDForText resolves free text to a medication id: exact key
+// first, then the word-order-invariant check-key fallback.
+func (c *refCatalog) medicationIDForText(text string) (string, bool) {
+	key := makeKey(text)
+	if key == "" {
+		return "", false
+	}
+	if _, ok := c.medicationNames[key]; ok {
+		return key, true
+	}
+	id, ok := c.medicationIDByCheckKey[checkKey(text)]
+	return id, ok
+}
+
 func (c *refCatalog) medicationsForCondition(conditionID string) []string {
 	return c.medicationsByCondition[conditionID]
 }
@@ -556,37 +632,27 @@ type conceptMatcher struct{}
 
 func (medicationMatcher) Match(text string, bundle *DatasetBundleV3) Concept {
 	cat := catalogFor(bundle)
-	key := makeKey(text)
-	if key != "" {
-		if _, ok := cat.medicationName(key); ok {
-			return buildMedicationConcept(cat, key, text)
-		}
+	if id, ok := cat.medicationIDForText(text); ok {
+		return buildMedicationConcept(cat, id, text)
 	}
 	return buildUnknownConcept(text)
 }
 
 func (conditionMatcher) Match(text string, bundle *DatasetBundleV3) Concept {
 	cat := catalogFor(bundle)
-	key := makeKey(text)
-	if key != "" {
-		if _, ok := cat.conditionName(key); ok {
-			return buildConditionConcept(cat, key, text)
-		}
+	if id, ok := cat.conditionIDForText(text); ok {
+		return buildConditionConcept(cat, id, text)
 	}
 	return buildUnknownConcept(text)
 }
 
 func (conceptMatcher) Match(text string, bundle *DatasetBundleV3) Concept {
 	cat := catalogFor(bundle)
-	key := makeKey(text)
-	if key == "" {
-		return buildUnknownConcept(text)
+	if id, ok := cat.conditionIDForText(text); ok {
+		return buildConditionConcept(cat, id, text)
 	}
-	if _, ok := cat.conditionName(key); ok {
-		return buildConditionConcept(cat, key, text)
-	}
-	if _, ok := cat.medicationName(key); ok {
-		return buildMedicationConcept(cat, key, text)
+	if id, ok := cat.medicationIDForText(text); ok {
+		return buildMedicationConcept(cat, id, text)
 	}
 	return buildUnknownConcept(text)
 }

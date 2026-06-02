@@ -108,5 +108,16 @@ func (a *DefaultMatchAlgorithm) Match(query string, candidates []CandidateConcep
 			return MatchResult{Found: true, Candidate: c}
 		}
 	}
+	// Third pass: word-order-invariant name match via the engine sorted
+	// check-key. A strict superset of the exact passes; first candidate
+	// wins. Severity qualifiers stay distinct (different letter multisets).
+	ck := checkKey(query)
+	if ck != "" {
+		for _, c := range candidates {
+			if checkKey(c.Name) == ck {
+				return MatchResult{Found: true, Candidate: c}
+			}
+		}
+	}
 	return MatchResult{}
 }

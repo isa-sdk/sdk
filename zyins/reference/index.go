@@ -103,6 +103,12 @@ type catalog struct {
 	conditionOrder  []string
 	medicationOrder []string
 
+	// Word-order-invariant fallback: name check-key -> id. First-write-
+	// wins so name-multiset collisions resolve deterministically (the
+	// catalog order seeds the winner), matching engine determinism.
+	conditionIDByCheckKey  map[string]string
+	medicationIDByCheckKey map[string]string
+
 	medicationsByCondition map[string][]string
 	conditionsByMedication map[string][]string
 
@@ -125,6 +131,8 @@ func buildCatalog(d *DatasetsResponse) *catalog {
 		medicationNames:        make(map[string]string, len(d.Medications)),
 		conditionOrder:         make([]string, 0, len(d.Conditions)),
 		medicationOrder:        make([]string, 0, len(d.Medications)),
+		conditionIDByCheckKey:  make(map[string]string, len(d.Conditions)),
+		medicationIDByCheckKey: make(map[string]string, len(d.Medications)),
 		medicationsByCondition: make(map[string][]string),
 		conditionsByMedication: make(map[string][]string),
 		freqCondForMedication:  make(map[string]map[string]int),
@@ -133,10 +141,12 @@ func buildCatalog(d *DatasetsResponse) *catalog {
 	for _, e := range d.Conditions {
 		c.conditionNames[e.ID] = e.Name
 		c.conditionOrder = append(c.conditionOrder, e.ID)
+		indexCheckKey(c.conditionIDByCheckKey, e.Name, e.ID)
 	}
 	for _, e := range d.Medications {
 		c.medicationNames[e.ID] = e.Name
 		c.medicationOrder = append(c.medicationOrder, e.ID)
+		indexCheckKey(c.medicationIDByCheckKey, e.Name, e.ID)
 	}
 	for _, r := range d.ConditionRelations {
 		c.medicationsByCondition[r.FromID] = append(c.medicationsByCondition[r.FromID], r.ToID)
@@ -208,6 +218,48 @@ func (c *catalog) conditionName(id string) (string, bool) {
 func (c *catalog) medicationName(id string) (string, bool) {
 	n, ok := c.medicationNames[id]
 	return n, ok
+}
+
+// indexCheckKey records an entity under its name's sorted check key,
+// first-write-wins so a name-multiset collision resolves to the
+// earliest catalog entry rather than letting a later row shadow it.
+func indexCheckKey(m map[string]string, name, id string) {
+	key := checkKey(name)
+	if key == "" {
+		return
+	}
+	if _, exists := m[key]; !exists {
+		m[key] = id
+	}
+}
+
+// conditionIDForText resolves free text to a condition id: exact id/name
+// key first, then the word-order-invariant check-key fallback. The
+// fallback is a strict superset — it only fires when the exact key missed.
+func (c *catalog) conditionIDForText(text string) (string, bool) {
+	key := makeKey(text)
+	if key == "" {
+		return "", false
+	}
+	if _, ok := c.conditionNames[key]; ok {
+		return key, true
+	}
+	id, ok := c.conditionIDByCheckKey[checkKey(text)]
+	return id, ok
+}
+
+// medicationIDForText resolves free text to a medication id: exact key
+// first, then the word-order-invariant check-key fallback.
+func (c *catalog) medicationIDForText(text string) (string, bool) {
+	key := makeKey(text)
+	if key == "" {
+		return "", false
+	}
+	if _, ok := c.medicationNames[key]; ok {
+		return key, true
+	}
+	id, ok := c.medicationIDByCheckKey[checkKey(text)]
+	return id, ok
 }
 
 func (c *catalog) medicationsForCondition(conditionID string) []string {

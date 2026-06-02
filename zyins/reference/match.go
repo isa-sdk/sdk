@@ -11,11 +11,8 @@ type MedicationsMatcher struct {
 // with IsKnown()==false and InputText() preserved. Never returns an
 // error.
 func (m *MedicationsMatcher) Match(text string) Concept {
-	key := makeKey(text)
-	if key != "" {
-		if _, ok := m.cat.medicationName(key); ok {
-			return buildMedicationConcept(m.cat, key, text)
-		}
+	if id, ok := m.cat.medicationIDForText(text); ok {
+		return buildMedicationConcept(m.cat, id, text)
 	}
 	return buildUnknownConcept(text)
 }
@@ -45,11 +42,8 @@ type ConditionsMatcher struct {
 // a ConditionConcept handle; on a miss, returns an unknown Concept.
 // Never returns an error.
 func (m *ConditionsMatcher) Match(text string) Concept {
-	key := makeKey(text)
-	if key != "" {
-		if _, ok := m.cat.conditionName(key); ok {
-			return buildConditionConcept(m.cat, key, text)
-		}
+	if id, ok := m.cat.conditionIDForText(text); ok {
+		return buildConditionConcept(m.cat, id, text)
 	}
 	return buildUnknownConcept(text)
 }
@@ -80,15 +74,11 @@ type ConceptsMatcher struct {
 // a medication hit, or an unknown Concept on a miss. Never returns an
 // error.
 func (m *ConceptsMatcher) Match(text string) Concept {
-	key := makeKey(text)
-	if key == "" {
-		return buildUnknownConcept(text)
+	if id, ok := m.cat.conditionIDForText(text); ok {
+		return buildConditionConcept(m.cat, id, text)
 	}
-	if _, ok := m.cat.conditionName(key); ok {
-		return buildConditionConcept(m.cat, key, text)
-	}
-	if _, ok := m.cat.medicationName(key); ok {
-		return buildMedicationConcept(m.cat, key, text)
+	if id, ok := m.cat.medicationIDForText(text); ok {
+		return buildMedicationConcept(m.cat, id, text)
 	}
 	return buildUnknownConcept(text)
 }

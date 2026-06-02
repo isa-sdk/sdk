@@ -66,6 +66,83 @@ func TestMakeKey(t *testing.T) {
 	}
 }
 
+func TestCheckKey(t *testing.T) {
+	cases := []struct {
+		in, want string
+	}{
+		// Word-order invariance: spaced and parenthesized forms collapse.
+		{"BREAST CANCER", "AABCCEENRRST"},
+		{"CANCER (BREAST)", "AABCCEENRRST"},
+		{"breast cancer", "AABCCEENRRST"},
+		// Digits sort before letters (byte order).
+		{"Type 2 Diabetes", "2ABDEEEIPSTTY"},
+		{"", ""},
+		{"!!!", ""},
+	}
+	for _, c := range cases {
+		t.Run(c.in, func(t *testing.T) {
+			if got := checkKey(c.in); got != c.want {
+				t.Errorf("checkKey(%q) = %q, want %q", c.in, got, c.want)
+			}
+		})
+	}
+}
+
+// fixtureWithCOPDSeverity adds spelled-out COPD severity rows so the
+// word-order-invariant fallback and severity-distinctness can be exercised.
+func fixtureWithCOPDSeverity() *DatasetsResponse {
+	d := fixtureDatasets()
+	d.Conditions = append(d.Conditions,
+		Entity{ID: "COPDSEVERE", Name: "Chronic Obstructive Pulmonary Disease (Severe)"},
+		Entity{ID: "COPDMILD", Name: "Chronic Obstructive Pulmonary Disease (Mild)"},
+	)
+	return d
+}
+
+func TestMatch_WordOrderInvariant_ResolvesViaCheckKey(t *testing.T) {
+	idx := NewIndex(fixtureWithCOPDSeverity())
+	got := idx.Conditions.Match("Severe Chronic Obstructive Pulmonary Disease")
+	if got.ID() != "COPDSEVERE" {
+		t.Errorf("id = %q, want COPDSEVERE", got.ID())
+	}
+	if got.InputText() != "Severe Chronic Obstructive Pulmonary Disease" {
+		t.Errorf("inputText not preserved: %q", got.InputText())
+	}
+}
+
+func TestMatch_KeepsSeverityDistinct(t *testing.T) {
+	idx := NewIndex(fixtureWithCOPDSeverity())
+	if id := idx.Conditions.Match("Mild Chronic Obstructive Pulmonary Disease").ID(); id != "COPDMILD" {
+		t.Errorf("mild id = %q, want COPDMILD", id)
+	}
+	if id := idx.Conditions.Match("Severe Chronic Obstructive Pulmonary Disease").ID(); id != "COPDSEVERE" {
+		t.Errorf("severe id = %q, want COPDSEVERE", id)
+	}
+}
+
+func TestMatch_ExactKey_StillResolves_Superset(t *testing.T) {
+	idx := NewIndex(fixtureDatasets())
+	if id := idx.Conditions.Match("high blood pressure").ID(); id != "HIGHBLOODPRESSURE" {
+		t.Errorf("id = %q, want HIGHBLOODPRESSURE", id)
+	}
+}
+
+func TestDefaultMatchAlgorithm_CheckKeyFallback(t *testing.T) {
+	a := NewDefaultMatchAlgorithm()
+	candidates := []CandidateConcept{
+		{ID: "COPDSEVERE", Name: "Chronic Obstructive Pulmonary Disease (Severe)", Kind: KindCondition},
+		{ID: "COPDMILD", Name: "Chronic Obstructive Pulmonary Disease (Mild)", Kind: KindCondition},
+	}
+	severe := a.Match("Severe Chronic Obstructive Pulmonary Disease", candidates)
+	if !severe.Found || severe.Candidate.ID != "COPDSEVERE" {
+		t.Errorf("severe match = %+v, want COPDSEVERE", severe)
+	}
+	mild := a.Match("Mild Chronic Obstructive Pulmonary Disease", candidates)
+	if !mild.Found || mild.Candidate.ID != "COPDMILD" {
+		t.Errorf("mild match = %+v, want COPDMILD", mild)
+	}
+}
+
 func TestMatch_UnknownText_ReturnsUnknownConcept(t *testing.T) {
 	idx := NewIndex(fixtureDatasets())
 
