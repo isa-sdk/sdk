@@ -34,7 +34,7 @@ func TestPrequalify_RunWithRawResponse_ReturnsEnvelopeAndRaw(t *testing.T) {
 	c := newTestClient(t, srv)
 	cov, _ := NewFaceValueCoverage(100_000)
 	sel, _ := NewProductSelectionOf(catalog.Products.Fex.AetnaAccendo())
-	env, raw, err := c.Prequalify.RunWithRawResponse(context.Background(), &PrequalifyInput{
+	env, raw, err := c.PrequalifyV1.RunWithRawResponse(context.Background(), &PrequalifyInput{
 		Applicant: validApplicant(t), Coverage: cov, Products: sel,
 	})
 	if err != nil {
@@ -73,7 +73,7 @@ func TestPrequalify_RunWithRawResponse_FallsBackToOutboundIdempotencyKey(t *test
 	c := newTestClient(t, srv)
 	cov, _ := NewFaceValueCoverage(100_000)
 	sel, _ := NewProductSelectionOf(catalog.Products.Fex.AetnaAccendo())
-	env, _, err := c.Prequalify.RunWithRawResponse(context.Background(), &PrequalifyInput{
+	env, _, err := c.PrequalifyV1.RunWithRawResponse(context.Background(), &PrequalifyInput{
 		Applicant: validApplicant(t), Coverage: cov, Products: sel,
 	}, WithIdempotencyKey("custom-key-42"))
 	if err != nil {
@@ -96,7 +96,7 @@ func TestIdempotencyConflictError_ParsedFromProblemDetails(t *testing.T) {
 	c := newTestClient(t, srv)
 	cov, _ := NewFaceValueCoverage(50_000)
 	sel, _ := NewProductSelectionOf(catalog.Products.Fex.AetnaAccendo())
-	_, err := c.Prequalify.Run(context.Background(), &PrequalifyInput{
+	_, err := c.PrequalifyV1.Run(context.Background(), &PrequalifyInput{
 		Applicant: validApplicant(t), Coverage: cov, Products: sel,
 	})
 	var ice *IdempotencyConflictError
@@ -128,7 +128,7 @@ func TestIdempotencyConflictError_FallbackFromConflictStatusOnly(t *testing.T) {
 	c := newTestClient(t, srv)
 	cov, _ := NewFaceValueCoverage(50_000)
 	sel, _ := NewProductSelectionOf(catalog.Products.Fex.AetnaAccendo())
-	_, err := c.Prequalify.Run(context.Background(), &PrequalifyInput{
+	_, err := c.PrequalifyV1.Run(context.Background(), &PrequalifyInput{
 		Applicant: validApplicant(t), Coverage: cov, Products: sel,
 	})
 	var ice *IdempotencyConflictError
@@ -167,7 +167,7 @@ func TestClient_ConcurrentRequestsHaveDistinctIdempotencyKeys(t *testing.T) {
 	var g errgroup.Group
 	for range n {
 		g.Go(func() error {
-			_, err := c.Prequalify.Run(context.Background(), &PrequalifyInput{
+			_, err := c.PrequalifyV1.Run(context.Background(), &PrequalifyInput{
 				Applicant: validApplicant(t), Coverage: cov, Products: sel,
 			})
 			return err
@@ -212,7 +212,7 @@ func TestClient_ConcurrentRequestsHaveDistinctRequestIDs(t *testing.T) {
 	var g errgroup.Group
 	for i := range n {
 		g.Go(func() error {
-			res, err := c.Prequalify.Run(context.Background(), &PrequalifyInput{
+			res, err := c.PrequalifyV1.Run(context.Background(), &PrequalifyInput{
 				Applicant: validApplicant(t), Coverage: cov, Products: sel,
 			})
 			if err != nil {

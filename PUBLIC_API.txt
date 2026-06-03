@@ -28,7 +28,7 @@ Example:
 
     isa, err := sdk.WithBearer("")  // reads ISA_TOKEN
     if err != nil { return err }
-    resp, err := isa.Zyins.Prequalify.Run(ctx, &zyins.PrequalifyInput{...})
+    resp, err := isa.Zyins.Prequalify.Run(ctx, &zyins.PrequalifyRequest{...})
 
 CONSTANTS
 
@@ -1157,10 +1157,27 @@ func (s *CasesService) Share(ctx context.Context, input *CaseCreateInput, opts .
 
 type Client struct {
 
-	// Prequalify runs the prequalify engine against an applicant.
-	Prequalify *PrequalifyService
-	// Quote computes a premium for one accepted plan after prequalify.
-	Quote *QuoteService
+	// Prequalify runs the prequalify engine against an applicant. This
+	// is the canonical, unversioned surface: it routes to whichever /vN
+	// the BundledAPIVersions table (or a per-instance pin) selects for
+	// the prequalify surface. See api/guides/api-version-pinning.md.
+	Prequalify *PrequalifyV3Service
+	// Quote runs the quote engine against an applicant. Canonical,
+	// unversioned surface; routes per the BundledAPIVersions table.
+	Quote *QuoteV3Service
+	// PrequalifyV1 is the legacy v1/v2-shaped prequalify entrypoint
+	// taking PrequalifyInput. Reachable only on a client explicitly
+	// pinned away from v3 via WithAPIVersionOverrides.
+	//
+	// Deprecated: use Prequalify with PrequalifyRequest; pin the
+	// prequalify surface to v1/v2 only if you need the legacy wire shape.
+	PrequalifyV1 *PrequalifyService
+	// QuoteV1 is the legacy v1/v2-shaped quote entrypoint taking
+	// QuoteInput.
+	//
+	// Deprecated: use Quote with QuoteRequest; pin the quote surface to
+	// v1/v2 only if you need the legacy wire shape.
+	QuoteV1 *QuoteService
 	// Datasets reads the read-only datasets surface (conditions,
 	// medications, brands, plans).
 	Datasets *DatasetsService
@@ -1199,9 +1216,15 @@ type Client struct {
 	// PrequalifyV3 runs the v3 prequalify engine with the uniform
 	// pricing[] table shape. See packages/ts/src/zyins/prequalify-v3.ts
 	// for the binding reference; the wire contract is in ADR-035.
+	//
+	// Deprecated: use Prequalify. PrequalifyV3 is retained for source
+	// compatibility and points at the same service.
 	PrequalifyV3 *PrequalifyV3Service
 	// QuoteV3 runs the v3 quote engine, grouping qualifying products
 	// by requested amount.
+	//
+	// Deprecated: use Quote. QuoteV3 is retained for source
+	// compatibility and points at the same service.
 	QuoteV3 *QuoteV3Service
 	// DatasetsV3 reads the typed id-keyed reference catalog at
 	// GET /v3/datasets. Use with Reference to resolve free text into
@@ -2304,6 +2327,10 @@ type PrequalifyInput struct {
 }
     PrequalifyInput is the typed request shape for Prequalify.Run.
 
+type PrequalifyOptions = PrequalifyV3Options
+    PrequalifyOptions carries the optional request controls for a prequalify
+    call (product-class filters, rank floor, ineligible inclusion).
+
 type PrequalifyPlan struct {
 	// Brand is the carrier identifier (e.g., "colonial-penn").
 	Brand string `json:"brand"`
@@ -2319,6 +2346,11 @@ type PrequalifyPlan struct {
 	ProductToken string `json:"product_token"`
 }
     PrequalifyPlan is one plan the engine accepted for the applicant.
+
+type PrequalifyRequest = PrequalifyV3Request
+    PrequalifyRequest is the typed request shape for the prequalify surface.
+    It carries the applicant, the requested coverage, and the product selection
+    to evaluate.
 
 type PrequalifyResult struct {
 	// Plans is the engine's qualified list, ordered by ranking.
@@ -2503,6 +2535,13 @@ type QuoteInput struct {
     QuoteInput is the typed request shape for Quote.Run. Constructed by the
     caller as a struct literal; Run validates required fields before the request
     hits the wire.
+
+type QuoteOptions = QuoteV3Options
+    QuoteOptions carries the optional request controls for a quote call.
+
+type QuoteRequest = QuoteV3Request
+    QuoteRequest is the typed request shape for the quote surface — the same
+    applicant/coverage/products shape as PrequalifyRequest.
 
 type QuoteResult struct {
 	// MonthlyPremiumCents is the final monthly premium in USD cents.

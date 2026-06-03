@@ -58,10 +58,27 @@ type Client struct {
 	// memoized defaults. See autocorrector_facade.go.
 	adapters referenceAdapters
 
-	// Prequalify runs the prequalify engine against an applicant.
-	Prequalify *PrequalifyService
-	// Quote computes a premium for one accepted plan after prequalify.
-	Quote *QuoteService
+	// Prequalify runs the prequalify engine against an applicant. This
+	// is the canonical, unversioned surface: it routes to whichever /vN
+	// the BundledAPIVersions table (or a per-instance pin) selects for
+	// the prequalify surface. See api/guides/api-version-pinning.md.
+	Prequalify *PrequalifyV3Service
+	// Quote runs the quote engine against an applicant. Canonical,
+	// unversioned surface; routes per the BundledAPIVersions table.
+	Quote *QuoteV3Service
+	// PrequalifyV1 is the legacy v1/v2-shaped prequalify entrypoint
+	// taking PrequalifyInput. Reachable only on a client explicitly
+	// pinned away from v3 via WithAPIVersionOverrides.
+	//
+	// Deprecated: use Prequalify with PrequalifyRequest; pin the
+	// prequalify surface to v1/v2 only if you need the legacy wire shape.
+	PrequalifyV1 *PrequalifyService
+	// QuoteV1 is the legacy v1/v2-shaped quote entrypoint taking
+	// QuoteInput.
+	//
+	// Deprecated: use Quote with QuoteRequest; pin the quote surface to
+	// v1/v2 only if you need the legacy wire shape.
+	QuoteV1 *QuoteService
 	// Datasets reads the read-only datasets surface (conditions,
 	// medications, brands, plans).
 	Datasets *DatasetsService
@@ -100,9 +117,15 @@ type Client struct {
 	// PrequalifyV3 runs the v3 prequalify engine with the uniform
 	// pricing[] table shape. See packages/ts/src/zyins/prequalify-v3.ts
 	// for the binding reference; the wire contract is in ADR-035.
+	//
+	// Deprecated: use Prequalify. PrequalifyV3 is retained for source
+	// compatibility and points at the same service.
 	PrequalifyV3 *PrequalifyV3Service
 	// QuoteV3 runs the v3 quote engine, grouping qualifying products
 	// by requested amount.
+	//
+	// Deprecated: use Quote. QuoteV3 is retained for source
+	// compatibility and points at the same service.
 	QuoteV3 *QuoteV3Service
 	// DatasetsV3 reads the typed id-keyed reference catalog at
 	// GET /v3/datasets. Use with Reference to resolve free text into
@@ -396,8 +419,8 @@ func NewClient(opts ...Option) (*Client, error) {
 			autocompleteAlgorithmOverride: o.autocompleteAlgorithm,
 		},
 	}
-	c.Prequalify = &PrequalifyService{client: c}
-	c.Quote = &QuoteService{client: c}
+	c.PrequalifyV1 = &PrequalifyService{client: c}
+	c.QuoteV1 = &QuoteService{client: c}
 	c.Datasets = &DatasetsService{client: c}
 	c.Products = &ProductsService{client: c}
 	c.ReferenceData = &ReferenceDataService{client: c}
@@ -409,8 +432,12 @@ func NewClient(opts ...Option) (*Client, error) {
 	c.Cases = &CasesService{client: c}
 	c.Email = &EmailService{client: c}
 	c.Logos = &LogosService{client: c}
-	c.PrequalifyV3 = &PrequalifyV3Service{client: c}
-	c.QuoteV3 = &QuoteV3Service{client: c}
+	prequalifyV3 := &PrequalifyV3Service{client: c}
+	quoteV3 := &QuoteV3Service{client: c}
+	c.Prequalify = prequalifyV3
+	c.Quote = quoteV3
+	c.PrequalifyV3 = prequalifyV3
+	c.QuoteV3 = quoteV3
 	c.DatasetsV3 = &DatasetsV3Service{client: c}
 	c.Reference = newReferenceService()
 	return c, nil

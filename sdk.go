@@ -24,7 +24,7 @@
 //
 //	isa, err := sdk.WithBearer("")  // reads ISA_TOKEN
 //	if err != nil { return err }
-//	resp, err := isa.Zyins.Prequalify.Run(ctx, &zyins.PrequalifyInput{...})
+//	resp, err := isa.Zyins.Prequalify.Run(ctx, &zyins.PrequalifyRequest{...})
 package sdk
 
 import (

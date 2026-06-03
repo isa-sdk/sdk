@@ -92,7 +92,7 @@ func TestPrequalifyService_Run_RejectsCallWhenPinnedToV3(t *testing.T) {
 	srv, captured := newRoutingServer(t, `{"data":{"plans":[]}}`)
 	c := newRoutingClient(t, srv, map[string]string{"prequalify": "v3"})
 
-	_, err := c.Prequalify.Run(context.Background(), &PrequalifyInput{
+	_, err := c.PrequalifyV1.Run(context.Background(), &PrequalifyInput{
 		Applicant: routingApplicant(t),
 		Coverage:  routingCoverage(t),
 		Products:  routingProducts(t),
@@ -119,7 +119,7 @@ func TestQuoteService_Run_RejectsCallWhenPinnedToV3(t *testing.T) {
 	srv, captured := newRoutingServer(t, `{"data":{"plans":[]}}`)
 	c := newRoutingClient(t, srv, map[string]string{"quote": "v3"})
 
-	_, err := c.Quote.Run(context.Background(), &QuoteInput{
+	_, err := c.QuoteV1.Run(context.Background(), &QuoteInput{
 		Applicant:    routingApplicant(t),
 		Coverage:     routingCoverage(t),
 		ProductToken: routingProduct.Id,

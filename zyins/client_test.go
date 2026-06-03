@@ -102,7 +102,7 @@ func TestPrequalify_Run_HappyPath(t *testing.T) {
 	cov, _ := NewFaceValueCoverage(100_000)
 	sel, _ := NewProductSelectionOf(catalog.Products.Fex.AetnaAccendo())
 
-	result, err := c.Prequalify.Run(context.Background(), &PrequalifyInput{
+	result, err := c.PrequalifyV1.Run(context.Background(), &PrequalifyInput{
 		Applicant: validApplicant(t),
 		Coverage:  cov,
 		Products:  sel,
@@ -139,7 +139,7 @@ func TestPrequalify_Run_NilInputReturnsValidationError(t *testing.T) {
 	// Pin to v2 so the legacy Prequalify.Run service is reachable; the
 	// bundled default is now v3, which routes to PrequalifyV3.Run.
 	c, _ := NewClient(WithToken("isa_test_abc"), WithAPIVersionOverrides(map[string]string{"prequalify": "v2"}))
-	_, err := c.Prequalify.Run(context.Background(), nil)
+	_, err := c.PrequalifyV1.Run(context.Background(), nil)
 	if !errors.Is(err, ErrValidation) {
 		t.Fatalf("expected ErrValidation; got %v", err)
 	}
@@ -157,7 +157,7 @@ func TestPrequalify_Run_ServerValidationErrorTyped(t *testing.T) {
 	cov, _ := NewFaceValueCoverage(100_000)
 	sel, _ := NewProductSelectionOf(catalog.Products.Fex.AetnaAccendo())
 
-	_, err := c.Prequalify.Run(context.Background(), &PrequalifyInput{
+	_, err := c.PrequalifyV1.Run(context.Background(), &PrequalifyInput{
 		Applicant: validApplicant(t),
 		Coverage:  cov,
 		Products:  sel,
@@ -189,7 +189,7 @@ func TestQuote_Run_HappyPath(t *testing.T) {
 
 	c := newTestClient(t, srv)
 	cov, _ := NewFaceValueCoverage(100_000)
-	result, err := c.Quote.Run(context.Background(), &QuoteInput{
+	result, err := c.QuoteV1.Run(context.Background(), &QuoteInput{
 		Applicant:    validApplicant(t),
 		Coverage:     cov,
 		ProductToken: "colonial-penn.final-expense",
@@ -227,7 +227,7 @@ func TestQuote_Run_RateLimitedReturnsTyped(t *testing.T) {
 
 	c := newTestClient(t, srv)
 	cov, _ := NewMonthlyBudgetCoverage(50)
-	_, err := c.Quote.Run(context.Background(), &QuoteInput{
+	_, err := c.QuoteV1.Run(context.Background(), &QuoteInput{
 		Applicant:    validApplicant(t),
 		Coverage:     cov,
 		ProductToken: "x.y",
@@ -253,7 +253,7 @@ func TestPrequalify_Run_WithIdempotencyKey(t *testing.T) {
 	c := newTestClient(t, srv)
 	cov, _ := NewFaceValueCoverage(50_000)
 	sel, _ := NewProductSelectionOf(catalog.Products.Fex.AetnaAccendo())
-	_, err := c.Prequalify.Run(context.Background(), &PrequalifyInput{
+	_, err := c.PrequalifyV1.Run(context.Background(), &PrequalifyInput{
 		Applicant: validApplicant(t),
 		Coverage:  cov,
 		Products:  sel,

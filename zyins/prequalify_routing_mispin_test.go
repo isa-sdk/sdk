@@ -114,7 +114,7 @@ func TestPrequalifyService_Run_PinnedV2HitsLegacyV1Path(t *testing.T) {
 	srv, captured := newRoutingServer(t, body)
 	c := newRoutingClient(t, srv, map[string]string{"prequalify": "v2"})
 
-	result, err := c.Prequalify.Run(context.Background(), &PrequalifyInput{
+	result, err := c.PrequalifyV1.Run(context.Background(), &PrequalifyInput{
 		Applicant: routingApplicant(t),
 		Coverage:  routingCoverage(t),
 		Products:  routingProducts(t),
@@ -135,7 +135,7 @@ func TestQuoteService_Run_PinnedV2HitsLegacyV1Path(t *testing.T) {
 	srv, captured := newRoutingServer(t, body)
 	c := newRoutingClient(t, srv, map[string]string{"quote": "v2"})
 
-	_, err := c.Quote.Run(context.Background(), &QuoteInput{
+	_, err := c.QuoteV1.Run(context.Background(), &QuoteInput{
 		Applicant:    routingApplicant(t),
 		Coverage:     routingCoverage(t),
 		ProductToken: routingProductWireID,
