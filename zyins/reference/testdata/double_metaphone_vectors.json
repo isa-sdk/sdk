@@ -1,0 +1,517 @@
+[
+  {
+    "term": "sertraline",
+    "primary": "SRTRLN",
+    "alternate": "SRTRLN"
+  },
+  {
+    "term": "sertralin",
+    "primary": "SRTRLN",
+    "alternate": "SRTRLN"
+  },
+  {
+    "term": "sertaline",
+    "primary": "SRTLN",
+    "alternate": "SRTLN"
+  },
+  {
+    "term": "tylenol",
+    "primary": "TLNL",
+    "alternate": "TLNL"
+  },
+  {
+    "term": "tylonol",
+    "primary": "TLNL",
+    "alternate": "TLNL"
+  },
+  {
+    "term": "crohns",
+    "primary": "KRNS",
+    "alternate": "KRNS"
+  },
+  {
+    "term": "chrons",
+    "primary": "XRNS",
+    "alternate": "XRNS"
+  },
+  {
+    "term": "lisinopril",
+    "primary": "LSNPRL",
+    "alternate": "LSNPRL"
+  },
+  {
+    "term": "metformin",
+    "primary": "MTFRMN",
+    "alternate": "MTFRMN"
+  },
+  {
+    "term": "atorvastatin",
+    "primary": "ATRFST",
+    "alternate": "ATRFST"
+  },
+  {
+    "term": "levothyroxine",
+    "primary": "LF0RKS",
+    "alternate": "LFTRKS"
+  },
+  {
+    "term": "hydrochlorothiazide",
+    "primary": "HTRXLR",
+    "alternate": "HTRKLR"
+  },
+  {
+    "term": "amlodipine",
+    "primary": "AMLTPN",
+    "alternate": "AMLTPN"
+  },
+  {
+    "term": "omeprazole",
+    "primary": "AMPRSL",
+    "alternate": "AMPRSL"
+  },
+  {
+    "term": "gabapentin",
+    "primary": "KPPNTN",
+    "alternate": "KPPNTN"
+  },
+  {
+    "term": "losartan",
+    "primary": "LSRTN",
+    "alternate": "LSRTN"
+  },
+  {
+    "term": "albuterol",
+    "primary": "ALPTRL",
+    "alternate": "ALPTRL"
+  },
+  {
+    "term": "simvastatin",
+    "primary": "SMFSTT",
+    "alternate": "SMFSTT"
+  },
+  {
+    "term": "montelukast",
+    "primary": "MNTLKS",
+    "alternate": "MNTLKS"
+  },
+  {
+    "term": "furosemide",
+    "primary": "FRSMT",
+    "alternate": "FRSMT"
+  },
+  {
+    "term": "prednisone",
+    "primary": "PRTNSN",
+    "alternate": "PRTNSN"
+  },
+  {
+    "term": "citalopram",
+    "primary": "STLPRM",
+    "alternate": "STLPRM"
+  },
+  {
+    "term": "tramadol",
+    "primary": "TRMTL",
+    "alternate": "TRMTL"
+  },
+  {
+    "term": "trazodone",
+    "primary": "TRSTN",
+    "alternate": "TRSTN"
+  },
+  {
+    "term": "escitalopram",
+    "primary": "ASTLPR",
+    "alternate": "ASTLPR"
+  },
+  {
+    "term": "pantoprazole",
+    "primary": "PNTPRS",
+    "alternate": "PNTPRS"
+  },
+  {
+    "term": "meloxicam",
+    "primary": "MLKSKM",
+    "alternate": "MLKSKM"
+  },
+  {
+    "term": "rosuvastatin",
+    "primary": "RSFSTT",
+    "alternate": "RSFSTT"
+  },
+  {
+    "term": "bupropion",
+    "primary": "PPRPN",
+    "alternate": "PPRPN"
+  },
+  {
+    "term": "clopidogrel",
+    "primary": "KLPTKR",
+    "alternate": "KLPTKR"
+  },
+  {
+    "term": "duloxetine",
+    "primary": "TLKSTN",
+    "alternate": "TLKSTN"
+  },
+  {
+    "term": "venlafaxine",
+    "primary": "FNLFKS",
+    "alternate": "FNLFKS"
+  },
+  {
+    "term": "carvedilol",
+    "primary": "KRFTLL",
+    "alternate": "KRFTLL"
+  },
+  {
+    "term": "warfarin",
+    "primary": "ARFRN",
+    "alternate": "FRFRN"
+  },
+  {
+    "term": "insulin",
+    "primary": "ANSLN",
+    "alternate": "ANSLN"
+  },
+  {
+    "term": "aspirin",
+    "primary": "ASPRN",
+    "alternate": "ASPRN"
+  },
+  {
+    "term": "ibuprofen",
+    "primary": "APPRFN",
+    "alternate": "APPRFN"
+  },
+  {
+    "term": "acetaminophen",
+    "primary": "ASTMNF",
+    "alternate": "ASTMNF"
+  },
+  {
+    "term": "amoxicillin",
+    "primary": "AMKSSL",
+    "alternate": "AMKSSL"
+  },
+  {
+    "term": "azithromycin",
+    "primary": "AS0RMS",
+    "alternate": "ASTRMS"
+  },
+  {
+    "term": "ciprofloxacin",
+    "primary": "SPRFLK",
+    "alternate": "SPRFLK"
+  },
+  {
+    "term": "doxycycline",
+    "primary": "TKSSKL",
+    "alternate": "TKSSKL"
+  },
+  {
+    "term": "fluoxetine",
+    "primary": "FLKSTN",
+    "alternate": "FLKSTN"
+  },
+  {
+    "term": "hypertension",
+    "primary": "HPRTNS",
+    "alternate": "HPRTNX"
+  },
+  {
+    "term": "diabetes",
+    "primary": "TPTS",
+    "alternate": "TPTS"
+  },
+  {
+    "term": "asthma",
+    "primary": "AS0M",
+    "alternate": "ASTM"
+  },
+  {
+    "term": "cholesterol",
+    "primary": "XLSTRL",
+    "alternate": "XLSTRL"
+  },
+  {
+    "term": "arthritis",
+    "primary": "AR0RTS",
+    "alternate": "ARTRTS"
+  },
+  {
+    "term": "depression",
+    "primary": "TPRSN",
+    "alternate": "TPRSN"
+  },
+  {
+    "term": "anxiety",
+    "primary": "ANKST",
+    "alternate": "ANKST"
+  },
+  {
+    "term": "migraine",
+    "primary": "MKRN",
+    "alternate": "MKRN"
+  },
+  {
+    "term": "pneumonia",
+    "primary": "NMN",
+    "alternate": "NMN"
+  },
+  {
+    "term": "bronchitis",
+    "primary": "PRNXTS",
+    "alternate": "PRNKTS"
+  },
+  {
+    "term": "copd",
+    "primary": "KPT",
+    "alternate": "KPT"
+  },
+  {
+    "term": "gerd",
+    "primary": "KRT",
+    "alternate": "JRT"
+  },
+  {
+    "term": "glaucoma",
+    "primary": "KLKM",
+    "alternate": "KLKM"
+  },
+  {
+    "term": "osteoporosis",
+    "primary": "ASTPRS",
+    "alternate": "ASTPRS"
+  },
+  {
+    "term": "hypothyroidism",
+    "primary": "HP0RTS",
+    "alternate": "HPTRTS"
+  },
+  {
+    "term": "psoriasis",
+    "primary": "SRSS",
+    "alternate": "SRSS"
+  },
+  {
+    "term": "eczema",
+    "primary": "ASM",
+    "alternate": "AXM"
+  },
+  {
+    "term": "dermatitis",
+    "primary": "TRMTTS",
+    "alternate": "TRMTTS"
+  },
+  {
+    "term": "xanax",
+    "primary": "SNKS",
+    "alternate": "SNKS"
+  },
+  {
+    "term": "prozac",
+    "primary": "PRSK",
+    "alternate": "PRSK"
+  },
+  {
+    "term": "zoloft",
+    "primary": "SLFT",
+    "alternate": "SLFT"
+  },
+  {
+    "term": "lipitor",
+    "primary": "LPTR",
+    "alternate": "LPTR"
+  },
+  {
+    "term": "synthroid",
+    "primary": "SN0RT",
+    "alternate": "SNTRT"
+  },
+  {
+    "term": "nexium",
+    "primary": "NKSM",
+    "alternate": "NKSM"
+  },
+  {
+    "term": "plavix",
+    "primary": "PLFKS",
+    "alternate": "PLFKS"
+  },
+  {
+    "term": "crestor",
+    "primary": "KRSTR",
+    "alternate": "KRSTR"
+  },
+  {
+    "term": "ventolin",
+    "primary": "FNTLN",
+    "alternate": "FNTLN"
+  },
+  {
+    "term": "singulair",
+    "primary": "SNKLR",
+    "alternate": "SNKLR"
+  },
+  {
+    "term": "phenobarbital",
+    "primary": "FNPRPT",
+    "alternate": "FNPRPT"
+  },
+  {
+    "term": "levofloxacin",
+    "primary": "LFFLKS",
+    "alternate": "LFFLKS"
+  },
+  {
+    "term": "metronidazole",
+    "primary": "MTRNTS",
+    "alternate": "MTRNTS"
+  },
+  {
+    "term": "cephalexin",
+    "primary": "SFLKSN",
+    "alternate": "SFLKSN"
+  },
+  {
+    "term": "prednisolone",
+    "primary": "PRTNSL",
+    "alternate": "PRTNSL"
+  },
+  {
+    "term": "naproxen",
+    "primary": "NPRKSN",
+    "alternate": "NPRKSN"
+  },
+  {
+    "term": "cyclobenzaprine",
+    "primary": "SKLPNS",
+    "alternate": "SKLPNS"
+  },
+  {
+    "term": "hydrocodone",
+    "primary": "HTRKTN",
+    "alternate": "HTRKTN"
+  },
+  {
+    "term": "oxycodone",
+    "primary": "AKSKTN",
+    "alternate": "AKSKTN"
+  },
+  {
+    "term": "morphine",
+    "primary": "MRFN",
+    "alternate": "MRFN"
+  },
+  {
+    "term": "fentanyl",
+    "primary": "FNTNL",
+    "alternate": "FNTNL"
+  },
+  {
+    "term": "lorazepam",
+    "primary": "LRSPM",
+    "alternate": "LRSPM"
+  },
+  {
+    "term": "clonazepam",
+    "primary": "KLNSPM",
+    "alternate": "KLNSPM"
+  },
+  {
+    "term": "diazepam",
+    "primary": "TSPM",
+    "alternate": "TSPM"
+  },
+  {
+    "term": "alprazolam",
+    "primary": "ALPRSL",
+    "alternate": "ALPRSL"
+  },
+  {
+    "term": "quetiapine",
+    "primary": "KXPN",
+    "alternate": "KXPN"
+  },
+  {
+    "term": "risperidone",
+    "primary": "RSPRTN",
+    "alternate": "RSPRTN"
+  },
+  {
+    "term": "aripiprazole",
+    "primary": "ARPPRS",
+    "alternate": "ARPPRS"
+  },
+  {
+    "term": "lamotrigine",
+    "primary": "LMTRJN",
+    "alternate": "LMTRKN"
+  },
+  {
+    "term": "topiramate",
+    "primary": "TPRMT",
+    "alternate": "TPRMT"
+  },
+  {
+    "term": "pregabalin",
+    "primary": "PRKPLN",
+    "alternate": "PRKPLN"
+  },
+  {
+    "term": "spironolactone",
+    "primary": "SPRNLK",
+    "alternate": "SPRNLK"
+  },
+  {
+    "term": "enalapril",
+    "primary": "ANLPRL",
+    "alternate": "ANLPRL"
+  },
+  {
+    "term": "ramipril",
+    "primary": "RMPRL",
+    "alternate": "RMPRL"
+  },
+  {
+    "term": "valsartan",
+    "primary": "FLSRTN",
+    "alternate": "FLSRTN"
+  },
+  {
+    "term": "candesartan",
+    "primary": "KNTSRT",
+    "alternate": "KNTSRT"
+  },
+  {
+    "term": "tamsulosin",
+    "primary": "TMSLSN",
+    "alternate": "TMSLSN"
+  },
+  {
+    "term": "finasteride",
+    "primary": "FNSTRT",
+    "alternate": "FNSTRT"
+  },
+  {
+    "term": "allopurinol",
+    "primary": "ALPRNL",
+    "alternate": "ALPRNL"
+  },
+  {
+    "term": "colchicine",
+    "primary": "KLXSN",
+    "alternate": "KLKSN"
+  },
+  {
+    "term": "methotrexate",
+    "primary": "M0TRKS",
+    "alternate": "MTTRKS"
+  },
+  {
+    "term": "seroquel",
+    "primary": "SRKL",
+    "alternate": "SRKL"
+  }
+]
