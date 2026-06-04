@@ -191,12 +191,14 @@ func OfferPremium(offer V3Offer) *V3Premium {
 
 // PrequalifyV3Options carries request controls unique to the v3 API.
 type PrequalifyV3Options struct {
-	OnlyProductClass            string   `json:"only_product_class,omitempty"`
-	IncludeProductClass         []string `json:"include_product_class,omitempty"`
-	MinRank                     string   `json:"min_rank,omitempty"`
-	ShowUnreleased              *bool    `json:"show_unreleased,omitempty"`
-	SkipHealthBasedUnderwriting *bool    `json:"skip_health_based_underwriting,omitempty"`
-	IncludeIneligible           *bool    `json:"include_ineligible,omitempty"`
+	OnlyProductClass    string   `json:"only_product_class,omitempty"`
+	IncludeProductClass []string `json:"include_product_class,omitempty"`
+	// MinRank is the minimum guaranteed-issue rank; assign a MinRank constant
+	// (canonical MinRankGuaranteed / MinRankRop, or a synonym) or a plain string.
+	MinRank                     string `json:"min_rank,omitempty"`
+	ShowUnreleased              *bool  `json:"show_unreleased,omitempty"`
+	SkipHealthBasedUnderwriting *bool  `json:"skip_health_based_underwriting,omitempty"`
+	IncludeIneligible           *bool  `json:"include_ineligible,omitempty"`
 }
 
 // PrequalifyV3Request is the typed request shape for POST /v3/prequalify.

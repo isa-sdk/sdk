@@ -41,3 +41,16 @@ func AllCoverageTypeValues() []string {
 		string(CoverageMonthlyBudget),
 	}
 }
+
+// AllMinRankValues returns every canonical wire value for MinRank.
+//
+// Synonyms (MinRankReturnOfPremium, MinRankGuaranteedIssue, MinRankGi) collapse
+// onto these tokens and are not enumerated separately.
+func AllMinRankValues() []string {
+	return []string{
+		string(MinRankGraded),
+		string(MinRankGuaranteed),
+		string(MinRankImmediate),
+		string(MinRankRop),
+	}
+}

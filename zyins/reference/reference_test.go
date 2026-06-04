@@ -304,6 +304,86 @@ func TestRank_DefaultSortKeepsFrequencyOrder(t *testing.T) {
 	}
 }
 
+func possessiveConditionCandidates() []CandidateConcept {
+	return []CandidateConcept{
+		{ID: "CROHNSDISEASE", Name: "Crohn's Disease", Kind: KindCondition},
+		{ID: "ALZHEIMERSDISEASE", Name: "Alzheimer's Disease", Kind: KindCondition},
+		{ID: "PARKINSONSDISEASE", Name: "Parkinson's Disease", Kind: KindCondition},
+		{ID: "GRAVESDISEASE", Name: "Graves' Disease", Kind: KindCondition},
+		{ID: "DIABETES", Name: "Diabetes", Kind: KindCondition},
+	}
+}
+
+func suggestionContainsID(suggestions []Suggestion, id string) bool {
+	for _, s := range suggestions {
+		if s.Concept.ID == id {
+			return true
+		}
+	}
+	return false
+}
+
+func TestRank_MakeKeyNormalization_SurfacesPossessiveNames(t *testing.T) {
+	// FIX #1: a correctly-spelled apostrophe-free query must reach a
+	// possessive-named condition, mirroring the server-side make_key match.
+	algo := NewDefaultAutocompleteAlgorithm()
+	cands := possessiveConditionCandidates()
+	cases := map[string]string{"crohns": "CROHNSDISEASE", "alzheimers": "ALZHEIMERSDISEASE", "parkinsons": "PARKINSONSDISEASE", "graves": "GRAVESDISEASE"}
+	for query, wantID := range cases {
+		got := algo.Rank(t.Context(), query, cands, AutocompleteOptions{Limit: 10})
+		if !suggestionContainsID(got, wantID) {
+			t.Errorf("Rank(%q) did not surface %s; got %v", query, wantID, got)
+		}
+	}
+}
+
+func TestRank_Fuzzy_RecoversTypos(t *testing.T) {
+	// FIX #2: transposition + phonetic typos surface via the default fuzzy
+	// fallback. "chrons"/"corhns" → Crohn's, "diabetis" → Diabetes,
+	// "tylonol" → Tylenol.
+	algo := NewDefaultAutocompleteAlgorithm()
+	cands := possessiveConditionCandidates()
+	for _, query := range []string{"chrons", "corhns"} {
+		got := algo.Rank(t.Context(), query, cands, AutocompleteOptions{Limit: 10})
+		if !suggestionContainsID(got, "CROHNSDISEASE") {
+			t.Errorf("Rank(%q) did not surface CROHNSDISEASE; got %v", query, got)
+		}
+	}
+	diab := algo.Rank(t.Context(), "diabetis", cands, AutocompleteOptions{Limit: 10})
+	if !suggestionContainsID(diab, "DIABETES") {
+		t.Errorf("Rank(diabetis) did not surface DIABETES; got %v", diab)
+	}
+	meds := []CandidateConcept{{ID: "TYLENOL", Name: "Tylenol", Kind: KindMedication}, {ID: "LISINOPRIL", Name: "Lisinopril", Kind: KindMedication}}
+	tyl := algo.Rank(t.Context(), "tylonol", meds, AutocompleteOptions{Limit: 10, Kinds: []ConceptKind{KindMedication}})
+	if !suggestionContainsID(tyl, "TYLENOL") {
+		t.Errorf("Rank(tylonol) did not surface TYLENOL; got %v", tyl)
+	}
+}
+
+func TestRank_Fuzzy_ExactAndPrefixRankAboveFuzzy(t *testing.T) {
+	// "diabe" is a literal prefix of Diabetes — the fuzzy fallback must not
+	// fire and Diabetes must rank first.
+	algo := NewDefaultAutocompleteAlgorithm()
+	got := algo.Rank(t.Context(), "diabe", possessiveConditionCandidates(), AutocompleteOptions{Limit: 10})
+	if len(got) == 0 || got[0].Concept.ID != "DIABETES" {
+		t.Errorf("Rank(diabe)[0] = %v, want DIABETES first", got)
+	}
+}
+
+func TestRank_Fuzzy_OptOut_SubstringOnly(t *testing.T) {
+	// WithAutocompleteFuzzy(false) restores substring-only behaviour: a
+	// transposition has no substring match, so it returns nothing. The
+	// make_key fix (FIX #1) is independent and still applies.
+	algo := NewDefaultAutocompleteAlgorithm(WithAutocompleteFuzzy(false))
+	cands := possessiveConditionCandidates()
+	if got := algo.Rank(t.Context(), "chrons", cands, AutocompleteOptions{Limit: 10}); len(got) != 0 {
+		t.Errorf("Rank(chrons) with fuzzy off = %v, want empty", got)
+	}
+	if got := algo.Rank(t.Context(), "crohns", cands, AutocompleteOptions{Limit: 10}); !suggestionContainsID(got, "CROHNSDISEASE") {
+		t.Errorf("Rank(crohns) with fuzzy off did not surface CROHNSDISEASE; got %v", got)
+	}
+}
+
 func TestEquals_CaseInsensitiveAcrossMatchers(t *testing.T) {
 	idx := NewIndex(fixtureDatasets())
 	upper := idx.Medications.Match("INSULIN")

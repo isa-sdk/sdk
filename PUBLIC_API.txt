@@ -815,6 +815,32 @@ const (
     caller-facing rename surfaces in one place rather than scattered string
     literals.
 
+const (
+	// MinRankImmediate is the immediate (full) benefit rank.
+	MinRankImmediate MinRank = "immediate"
+
+	// MinRankGraded is the graded-benefit rank.
+	MinRankGraded MinRank = "graded"
+
+	// MinRankRop is the return-of-premium rank. Canonical value; see
+	// MinRankReturnOfPremium for the synonym.
+	MinRankRop MinRank = "rop"
+
+	// MinRankGuaranteed is the guaranteed-issue rank. Canonical value; see
+	// MinRankGuaranteedIssue and MinRankGi for synonyms.
+	MinRankGuaranteed MinRank = "guaranteed"
+
+	// MinRankReturnOfPremium is a synonym for MinRankRop.
+	MinRankReturnOfPremium = MinRankRop
+
+	// MinRankGuaranteedIssue is a synonym for MinRankGuaranteed.
+	MinRankGuaranteedIssue = MinRankGuaranteed
+
+	// MinRankGi is a synonym for MinRankGuaranteed.
+	MinRankGi = MinRankGuaranteed
+)
+    MinRank values accepted by the server's min_rank filter.
+
 const DefaultBaseURL = "https://zyins.isaapi.com"
     DefaultBaseURL is the production ZyINS endpoint. Override with WithBaseURL
     for staging, sandbox, or local-development fixture servers.
@@ -864,6 +890,12 @@ FUNCTIONS
 
 func AllCoverageTypeValues() []string
     AllCoverageTypeValues returns every canonical wire value for CoverageType.
+
+func AllMinRankValues() []string
+    AllMinRankValues returns every canonical wire value for MinRank.
+
+    Synonyms (MinRankReturnOfPremium, MinRankGuaranteedIssue, MinRankGi)
+    collapse onto these tokens and are not enumerated separately.
 
 func AllNicotineUsageValues() []string
     AllNicotineUsageValues returns every canonical wire value for NicotineUsage.
@@ -2117,6 +2149,18 @@ func (s *MemoryCredentialStore) Remove(key string) error
 func (s *MemoryCredentialStore) Set(key, value string) error
     Set stores value under key. Never returns an error in this impl.
 
+type MinRank string
+    MinRank is the minimum guaranteed-issue rank accepted by the server's
+    min_rank filter on prequalify and quote.
+
+    The canonical values are MinRankImmediate, MinRankGraded, MinRankRop,
+    and MinRankGuaranteed; MinRankReturnOfPremium, MinRankGuaranteedIssue,
+    and MinRankGi are synonyms that share the canonical lowercase wire token.
+    The server compares case-insensitively and also tolerates numeric strings,
+    so option fields stay typed as string rather than MinRank — these constants
+    are for ergonomics and autocomplete, not a hard gate. MinRank is itself a
+    string type, so every constant assigns to a string field without conversion.
+
 type NicotineDuration string
     NicotineDuration is the seven-bucket duration encoding for nicotine use
     history. It is the preferred form for the 0.5.1 wire.
@@ -2390,12 +2434,14 @@ func (s *PrequalifyService) RunWithRawResponse(
     is the return signature.
 
 type PrequalifyV3Options struct {
-	OnlyProductClass            string   `json:"only_product_class,omitempty"`
-	IncludeProductClass         []string `json:"include_product_class,omitempty"`
-	MinRank                     string   `json:"min_rank,omitempty"`
-	ShowUnreleased              *bool    `json:"show_unreleased,omitempty"`
-	SkipHealthBasedUnderwriting *bool    `json:"skip_health_based_underwriting,omitempty"`
-	IncludeIneligible           *bool    `json:"include_ineligible,omitempty"`
+	OnlyProductClass    string   `json:"only_product_class,omitempty"`
+	IncludeProductClass []string `json:"include_product_class,omitempty"`
+	// MinRank is the minimum guaranteed-issue rank; assign a MinRank constant
+	// (canonical MinRankGuaranteed / MinRankRop, or a synonym) or a plain string.
+	MinRank                     string `json:"min_rank,omitempty"`
+	ShowUnreleased              *bool  `json:"show_unreleased,omitempty"`
+	SkipHealthBasedUnderwriting *bool  `json:"skip_health_based_underwriting,omitempty"`
+	IncludeIneligible           *bool  `json:"include_ineligible,omitempty"`
 }
     PrequalifyV3Options carries request controls unique to the v3 API.
 

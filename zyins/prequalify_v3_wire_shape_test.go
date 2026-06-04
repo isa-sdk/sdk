@@ -401,3 +401,136 @@ func TestPrequalifyV3Run_WithSingleMonthlyBudget_SerializesQuoteOptions(t *testi
 		t.Errorf("coverage.quote_options.amounts = %v, want [50]", got)
 	}
 }
+
+// newQuoteCapturingClient returns a client whose transport records the request
+// body and answers with a canned quote envelope, for asserting the QuoteV3
+// flat wire body (the path that carries options.min_rank).
+func newQuoteCapturingClient(t *testing.T, srv *capturingV3Server) *Client {
+	t.Helper()
+	srv.server.Close()
+	quoteSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		srv.path = r.URL.Path
+		srv.method = r.Method
+		srv.header = r.Header.Clone()
+		body, _ := io.ReadAll(r.Body)
+		srv.body = body
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{
+			"object":"quote_result",
+			"request_id":"req_01HZK2N5GQR9T8X4B6FJW3Y1AS",
+			"idempotency_key":"550e8400-e29b-41d4-a716-446655440000",
+			"livemode":true,
+			"data":{"plans":[]}
+		}`))
+	}))
+	t.Cleanup(quoteSrv.Close)
+	return newV3PinnedClient(t, quoteSrv)
+}
+
+// TestQuoteV3Run_SerializesMinRankWireToken pins the MinRank value set to its
+// lowercase wire tokens, canonical and synonym alike, on the quote path (the
+// serializer that carries options.min_rank). Mirrors the Python/TS/PHP/C#
+// wire-shape suites so a divergence in any one language fails its own CI.
+func TestQuoteV3Run_SerializesMinRankWireToken(t *testing.T) {
+	tests := []struct {
+		name   string
+		option MinRank
+		want   string
+	}{
+		{"immediate", MinRankImmediate, "immediate"},
+		{"graded", MinRankGraded, "graded"},
+		{"rop", MinRankRop, "rop"},
+		{"guaranteed", MinRankGuaranteed, "guaranteed"},
+		{"return_of_premium synonym", MinRankReturnOfPremium, "rop"},
+		{"guaranteed_issue synonym", MinRankGuaranteedIssue, "guaranteed"},
+		{"gi synonym", MinRankGi, "guaranteed"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			srv := newCapturingV3Server(t)
+			client := newQuoteCapturingClient(t, srv)
+
+			cov, err := NewFaceValueCoverage(100_000)
+			if err != nil {
+				t.Fatalf("NewFaceValueCoverage: %v", err)
+			}
+			products, err := NewProductSelectionOf(catalog.Products.Term.FidelityLifeInstabrainPureTerm())
+			if err != nil {
+				t.Fatalf("NewProductSelection: %v", err)
+			}
+			req := &QuoteV3Request{
+				Applicant: v3TestApplicant(t),
+				Coverage:  cov,
+				Products:  products,
+				// MinRank is a string type, so a typed constant assigns directly
+				// to the string field — the non-breaking escape hatch.
+				Options: &QuoteV3Options{MinRank: string(tt.option)},
+			}
+			if _, err := client.QuoteV3.Run(context.Background(), req); err != nil {
+				t.Fatalf("QuoteV3.Run: %v", err)
+			}
+
+			var flat map[string]any
+			if err := json.Unmarshal(srv.body, &flat); err != nil {
+				t.Fatalf("decode flat body: %v\nbody=%s", err, string(srv.body))
+			}
+			if got, ok := flat["min_rank"].(string); !ok || got != tt.want {
+				t.Errorf("min_rank = %v, want %q; body=%s", flat["min_rank"], tt.want, string(srv.body))
+			}
+		})
+	}
+}
+
+// TestPrequalifyV3Run_EmitsSharedUnderwritingOptions pins the four options the
+// /v3/prequalify envelope now shares with the /v3/quote flat body — min_rank,
+// only_product_class, skip_health_based_underwriting, show_unreleased — onto
+// the prequalify wire body. The server (zyins #439) honors them on
+// /v3/prequalify; this guards against the serializer silently dropping them
+// again (the bug that left "Quote Type = Graded" with no wire effect). Mirrors
+// TestQuoteV3Run_SerializesMinRankWireToken on the prequalify path.
+func TestPrequalifyV3Run_EmitsSharedUnderwritingOptions(t *testing.T) {
+	srv := newCapturingV3Server(t)
+	client := newV3PinnedClient(t, srv.server)
+
+	cov, err := NewFaceValueCoverage(100_000)
+	if err != nil {
+		t.Fatalf("NewFaceValueCoverage: %v", err)
+	}
+	products, err := NewProductSelectionOf(catalog.Products.Term.FidelityLifeInstabrainPureTerm())
+	if err != nil {
+		t.Fatalf("NewProductSelection: %v", err)
+	}
+	showUnreleased := true
+	skipHealth := true
+	req := &PrequalifyV3Request{
+		Applicant: v3TestApplicant(t),
+		Coverage:  cov,
+		Products:  products,
+		Options: &PrequalifyV3Options{
+			MinRank:                     string(MinRankGraded),
+			OnlyProductClass:            "fex",
+			ShowUnreleased:              &showUnreleased,
+			SkipHealthBasedUnderwriting: &skipHealth,
+		},
+	}
+	if _, err := client.PrequalifyV3.Run(context.Background(), req); err != nil {
+		t.Fatalf("PrequalifyV3.Run: %v", err)
+	}
+
+	var body map[string]any
+	if err := json.Unmarshal(srv.body, &body); err != nil {
+		t.Fatalf("decode request body: %v\nbody=%s", err, string(srv.body))
+	}
+	if got, ok := body["min_rank"].(string); !ok || got != "graded" {
+		t.Errorf("min_rank = %v, want %q; body=%s", body["min_rank"], "graded", string(srv.body))
+	}
+	if got, ok := body["only_product_class"].(string); !ok || got != "fex" {
+		t.Errorf("only_product_class = %v, want %q; body=%s", body["only_product_class"], "fex", string(srv.body))
+	}
+	if got, ok := body["show_unreleased"].(bool); !ok || !got {
+		t.Errorf("show_unreleased = %v, want true; body=%s", body["show_unreleased"], string(srv.body))
+	}
+	if got, ok := body["skip_health_based_underwriting"].(bool); !ok || !got {
+		t.Errorf("skip_health_based_underwriting = %v, want true; body=%s", body["skip_health_based_underwriting"], string(srv.body))
+	}
+}

@@ -48,8 +48,21 @@ func WithAutocompleteAlgorithmVersionTag(tag string) AutocompleteAlgorithmOption
 	}
 }
 
+// WithAutocompleteFuzzy toggles the typo-tolerant fallback. When enabled
+// (the default), a query the substring filter cannot place falls back to a
+// token-aware fuzzy pass — Damerau-OSA within the length band OR
+// Double-Metaphone equality, per candidate token — with fuzzy hits ranked
+// strictly below every literal bucket. Pass WithAutocompleteFuzzy(false) to
+// restore substring-only behaviour.
+func WithAutocompleteFuzzy(enabled bool) AutocompleteAlgorithmOption {
+	return func(o *defaultAutocompleteAlgorithmOptions) {
+		o.fuzzy = enabled
+	}
+}
+
 type defaultAutocompleteAlgorithmOptions struct {
 	versionTag string
+	fuzzy      bool
 }
 
 // DefaultAutocompleteAlgorithm is the locked-spec bucketed algorithm.
@@ -58,18 +71,20 @@ type defaultAutocompleteAlgorithmOptions struct {
 // are defined in /tmp/v3-datasets-adapter-cutover-spec.md §2.
 type DefaultAutocompleteAlgorithm struct {
 	versionTag string
+	fuzzy      bool
 }
 
 // NewDefaultAutocompleteAlgorithm constructs the default bucketed
-// ranker.
+// ranker. Typo-tolerant fuzzy fallback is ON by default; disable it with
+// WithAutocompleteFuzzy(false).
 func NewDefaultAutocompleteAlgorithm(opts ...AutocompleteAlgorithmOption) *DefaultAutocompleteAlgorithm {
-	resolved := defaultAutocompleteAlgorithmOptions{}
+	resolved := defaultAutocompleteAlgorithmOptions{fuzzy: true}
 	for _, opt := range opts {
 		if opt != nil {
 			opt(&resolved)
 		}
 	}
-	return &DefaultAutocompleteAlgorithm{versionTag: resolved.versionTag}
+	return &DefaultAutocompleteAlgorithm{versionTag: resolved.versionTag, fuzzy: resolved.fuzzy}
 }
 
 // VersionTag returns the caller-supplied identifier.
@@ -77,13 +92,13 @@ func (a *DefaultAutocompleteAlgorithm) VersionTag() string { return a.versionTag
 
 // Clone returns a new instance with the supplied options applied.
 func (a *DefaultAutocompleteAlgorithm) Clone(opts ...AutocompleteAlgorithmOption) *DefaultAutocompleteAlgorithm {
-	resolved := defaultAutocompleteAlgorithmOptions{versionTag: a.versionTag}
+	resolved := defaultAutocompleteAlgorithmOptions{versionTag: a.versionTag, fuzzy: a.fuzzy}
 	for _, opt := range opts {
 		if opt != nil {
 			opt(&resolved)
 		}
 	}
-	return &DefaultAutocompleteAlgorithm{versionTag: resolved.versionTag}
+	return &DefaultAutocompleteAlgorithm{versionTag: resolved.versionTag, fuzzy: resolved.fuzzy}
 }
 
 // Rank implements [AutocompleteAlgorithm].
@@ -101,6 +116,17 @@ func (a *DefaultAutocompleteAlgorithm) Rank(_ context.Context, query string, can
 	prefilter := prefilterByWordOverlap(filtered, wordsInInput, upperInput)
 	buckets := bucketize(prefilter, wordsInInput, upperInput)
 	grouped := groupedFromBuckets(buckets)
+
+	// Typo-tolerant fallback. When the literal filter comes up nearly empty,
+	// recover transpositions/phonetic misses ("chrons" → Crohn's, "diabetis"
+	// → Diabetes, "tylonol" → Tylenol). Fuzzy hits occupy the strict lowest
+	// bucket. Default ON; WithAutocompleteFuzzy(false) skips it.
+	if a.fuzzy && len(prefilter) <= fuzzyFallbackThreshold {
+		fuzzyHits := collectFuzzyAutocomplete(makeKey(query), wordsInInput, filtered, prefilter)
+		if len(fuzzyHits) > 0 {
+			grouped = append(grouped, fuzzyHits)
+		}
+	}
 
 	// Order within the matched set. SortAlphabetical flattens every bucket
 	// into one A→Z group (the relevance filter already decided membership);
@@ -179,11 +205,14 @@ func tokenizeAutocomplete(s string) []string {
 // prefilterByWordOverlap mirrors the JS filterOptions function.
 func prefilterByWordOverlap(candidates []CandidateConcept, wordsInInput []string, upperInput string) []CandidateConcept {
 	if len(wordsInInput) < 2 {
-		cleaned := strings.ReplaceAll(upperInput, "(", "")
+		// Compare on the make_key form (uppercase, all non-alphanumeric
+		// stripped from BOTH sides) so a correctly-spelled "crohns" matches
+		// "Crohn's Disease" — the literal "("-only strip leaves the
+		// apostrophe in and breaks it. Mirrors the server-side make_key match.
+		queryKey := makeKey(upperInput)
 		out := candidates[:0:0]
 		for _, c := range candidates {
-			name := strings.ToUpper(strings.ReplaceAll(c.Name, "(", ""))
-			if strings.Contains(name, cleaned) {
+			if strings.Contains(makeKey(c.Name), queryKey) {
 				out = append(out, c)
 			}
 		}

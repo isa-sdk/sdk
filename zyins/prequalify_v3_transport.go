@@ -185,6 +185,31 @@ func (s *QuoteV3Service) Run(ctx context.Context, req *QuoteV3Request, opts ...V
 // NicotineUsageInput in go/zyins/api/openapi.yaml.
 // ---------------------------------------------------------------------------
 
+// applyV3SharedOptions writes the scalar underwriting options shared by the
+// v3 prequalify envelope and the v3 quote flat body onto payload. Each key is
+// emitted only when its option is set; a zero-valued option leaves the key
+// absent so the server sees no key rather than an empty string or null.
+// IncludeProductClass and IncludeIneligible are intentionally excluded — the
+// former is a quote-only flat-body concern, the latter has builder-specific
+// defaulting.
+func applyV3SharedOptions(payload map[string]any, options *PrequalifyV3Options) {
+	if options == nil {
+		return
+	}
+	if options.OnlyProductClass != "" {
+		payload["only_product_class"] = options.OnlyProductClass
+	}
+	if options.MinRank != "" {
+		payload["min_rank"] = options.MinRank
+	}
+	if options.ShowUnreleased != nil {
+		payload["show_unreleased"] = *options.ShowUnreleased
+	}
+	if options.SkipHealthBasedUnderwriting != nil {
+		payload["skip_health_based_underwriting"] = *options.SkipHealthBasedUnderwriting
+	}
+}
+
 // buildV3PrequalifyEnvelopeBody serializes a PrequalifyV3Request into
 // the `PrequalifyV3Request` wire envelope.
 //
@@ -192,11 +217,10 @@ func (s *QuoteV3Service) Run(ctx context.Context, req *QuoteV3Request, opts ...V
 // per the v3 schema (zip is required for medsup quotes; the server
 // zip-gates and silently filters medsup products when it is absent).
 // `options.MinRank`, `options.ShowUnreleased`,
-// `options.SkipHealthBasedUnderwriting`, `options.OnlyProductClass`,
-// `options.IncludeProductClass` are not part of the v3 prequalify
-// envelope and are silently dropped — they survive on /v3/quote via
-// the legacy flat body. v3 prequalify is face-amount-only; multi-amount
-// and monthly-budget callers must use QuoteV3.Run.
+// `options.SkipHealthBasedUnderwriting`, and `options.OnlyProductClass`
+// ride the same wire keys the /v3/quote flat body uses; the server
+// (zyins #439) honors them on /v3/prequalify. `options.IncludeProductClass`
+// has no place in the explicit-products envelope and is not serialized.
 func buildV3PrequalifyEnvelopeBody(app Applicant, cov Coverage, products ProductSelection, options *PrequalifyV3Options) ([]byte, error) {
 	if err := app.validate(); err != nil {
 		return nil, &ValidationError{Base: &Error{
@@ -233,6 +257,7 @@ func buildV3PrequalifyEnvelopeBody(app Applicant, cov Coverage, products Product
 		"coverage":  buildV3Coverage(cov, string(app.State), app.Zip),
 		"products":  products.wireIDs(),
 	}
+	applyV3SharedOptions(payload, options)
 	if options != nil && options.IncludeIneligible != nil {
 		payload["include_ineligible"] = *options.IncludeIneligible
 	} else {
@@ -435,21 +460,10 @@ func buildV3WireBody(app Applicant, cov Coverage, products ProductSelection, opt
 	if app.Zip != "" {
 		payload["zip"] = app.Zip
 	}
+	applyV3SharedOptions(payload, options)
 	if options != nil {
-		if options.OnlyProductClass != "" {
-			payload["only_product_class"] = options.OnlyProductClass
-		}
 		if len(options.IncludeProductClass) > 0 {
 			payload["include_product_class"] = options.IncludeProductClass
-		}
-		if options.MinRank != "" {
-			payload["min_rank"] = options.MinRank
-		}
-		if options.ShowUnreleased != nil {
-			payload["show_unreleased"] = *options.ShowUnreleased
-		}
-		if options.SkipHealthBasedUnderwriting != nil {
-			payload["skip_health_based_underwriting"] = *options.SkipHealthBasedUnderwriting
 		}
 		if options.IncludeIneligible != nil {
 			payload["include_ineligible"] = *options.IncludeIneligible
